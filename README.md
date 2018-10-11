@@ -1,10 +1,6 @@
 # Ordershop
 Microservice architecture sample application.
 
-Start the application by
+Start the application by `docker-compose up`.
 
-`docker-compose up`.
-
-Then execute the client by
-
-`python3 -m unittest client/client.py`.
+Then execute the client by `python3 -m unittest client/client.py`.
