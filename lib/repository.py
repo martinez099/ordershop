@@ -35,11 +35,12 @@ class Repository(object):
         return list(self.items.values())
 
     def del_item(self, _id):
-        if _id in self.items:
+        try:
             item = self.items[_id]
             del self.items[_id]
             return item
-        return False
+        except KeyError:
+            return False
 
     def reset(self):
         self.items = {}

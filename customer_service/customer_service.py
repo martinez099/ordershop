@@ -32,13 +32,21 @@ store = EventStore(redis)
 
 
 @app.route('/customers', methods=['GET'])
+@app.route('/customer/<customer_id>', methods=['GET'])
+def query(customer_id=None):
+
+    if customer_id:
+        customer = repo.get_item(customer_id)
+        return json.dumps(customer.__dict__) if customer else json.dumps(False)
+    else:
+        return json.dumps([item.__dict__ for item in repo.get_items()])
+
+
 @app.route('/customers', methods=['POST'])
 @app.route('/customer', methods=['POST'])
-def no_params():
-
-    # handle GET
-    if request.method == 'GET':
-        return json.dumps([item.__dict__ for item in repo.get_items()])
+@app.route('/customer/<customer_id>', methods=['PUT'])
+@app.route('/customer/<customer_id>', methods=['DELETE'])
+def command(customer_id=None):
 
     # handle POST
     if request.method == 'POST':
@@ -57,9 +65,7 @@ def no_params():
             if repo.set_item(new_customer):
 
                 # trigger event
-                event = Event('CUSTOMER', 'CREATED', **new_customer.__dict__)
-                store.save(event)
-                store.publish(event)
+                store.publish(Event('CUSTOMER', 'CREATED', **new_customer.__dict__))
 
                 customer_ids.append(str(new_customer.id))
             else:
@@ -67,17 +73,6 @@ def no_params():
 
         return json.dumps({'status': 'ok',
                            'ids': customer_ids})
-
-
-@app.route('/customer/<customer_id>', methods=['GET'])
-@app.route('/customer/<customer_id>', methods=['PUT'])
-@app.route('/customer/<customer_id>', methods=['DELETE'])
-def one_param(customer_id):
-
-    # handle GET
-    if request.method == 'GET':
-        customer = repo.get_item(customer_id)
-        return json.dumps(customer.__dict__) if customer else json.dumps(False)
 
     # handle PUT
     if request.method == 'PUT':
@@ -91,9 +86,7 @@ def one_param(customer_id):
         if repo.set_item(customer):
 
             # trigger event
-            event = Event('CUSTOMER', 'UPDATED', **customer.__dict__)
-            store.save(event)
-            store.publish(event)
+            store.publish(Event('CUSTOMER', 'UPDATED', **customer.__dict__))
 
             return json.dumps({'status': 'ok'})
         else:
@@ -105,9 +98,7 @@ def one_param(customer_id):
         if customer:
 
             # trigger event
-            event = Event('CUSTOMER', 'DELETED', **customer.__dict__)
-            store.save(event)
-            store.publish(event)
+            store.publish(Event('CUSTOMER', 'DELETED', **customer.__dict__))
 
             return json.dumps({'status': 'ok'})
         else:

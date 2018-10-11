@@ -32,13 +32,21 @@ store = EventStore(redis)
 
 
 @app.route('/orders', methods=['GET'])
+@app.route('/order/<order_id>', methods=['GET'])
+def query(order_id=None):
+
+    if order_id:
+        order = repo.get_item(order_id)
+        return json.dumps(order.__dict__) if order else json.dumps(False)
+    else:
+        return json.dumps([item.__dict__ for item in repo.get_items()])
+
+
 @app.route('/orders', methods=['POST'])
 @app.route('/order', methods=['POST'])
-def no_params():
-
-    # handle GET
-    if request.method == 'GET':
-        return json.dumps([item.__dict__ for item in repo.get_items()])
+@app.route('/order/<order_id>', methods=['PUT'])
+@app.route('/order/<order_id>', methods=['DELETE'])
+def command(order_id=None):
 
     # handle POST
     if request.method == 'POST':
@@ -57,9 +65,7 @@ def no_params():
             if repo.set_item(new_order):
 
                 # trigger event
-                event = Event('ORDER', 'CREATED', **new_order.__dict__)
-                store.save(event)
-                store.publish(event)
+                store.publish(Event('ORDER', 'CREATED', **new_order.__dict__))
 
                 order_ids.append(str(new_order.id))
             else:
@@ -67,17 +73,6 @@ def no_params():
 
         return json.dumps({'status': 'ok',
                            'ids': order_ids})
-
-
-@app.route('/order/<order_id>', methods=['GET'])
-@app.route('/order/<order_id>', methods=['PUT'])
-@app.route('/order/<order_id>', methods=['DELETE'])
-def one_param(order_id):
-
-    # handle GET
-    if request.method == 'GET':
-        order = repo.get_item(order_id)
-        return json.dumps(order.__dict__) if order else json.dumps(False)
 
     # handle PUT
     if request.method == 'PUT':
@@ -91,9 +86,7 @@ def one_param(order_id):
         if repo.set_item(order):
 
             # trigger event
-            event = Event('ORDER', 'UPDATED', **order.__dict__)
-            store.save(event)
-            store.publish(event)
+            store.publish(Event('ORDER', 'UPDATED', **order.__dict__))
 
             return json.dumps({'status': 'ok'})
         else:
@@ -105,9 +98,7 @@ def one_param(order_id):
         if order:
 
             # trigger event
-            event = Event('ORDER', 'DELETED', **order.__dict__)
-            store.save(event)
-            store.publish(event)
+            store.publish(Event('ORDER', 'DELETED', **order.__dict__))
 
             return json.dumps({'status': 'ok'})
         else:

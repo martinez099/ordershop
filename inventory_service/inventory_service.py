@@ -32,13 +32,21 @@ store = EventStore(redis)
 
 
 @app.route('/products', methods=['GET'])
+@app.route('/product/<product_id>', methods=['GET'])
+def query(product_id=None):
+
+    if product_id:
+        product = repo.get_item(product_id)
+        return json.dumps(product.__dict__) if product else json.dumps(False)
+    else:
+        return json.dumps([item.__dict__ for item in repo.get_items()])
+
+
 @app.route('/products', methods=['POST'])
 @app.route('/product', methods=['POST'])
-def no_params():
-
-    # handle GET
-    if request.method == 'GET':
-        return json.dumps([item.__dict__ for item in repo.get_items()])
+@app.route('/product/<product_id>', methods=['PUT'])
+@app.route('/product/<product_id>', methods=['DELETE'])
+def command(product_id=None):
 
     # handle POST
     if request.method == 'POST':
@@ -57,9 +65,7 @@ def no_params():
             if repo.set_item(new_product):
 
                 # trigger event
-                event = Event('PRODUCT', 'CREATED', **new_product.__dict__)
-                store.save(event)
-                store.publish(event)
+                store.publish(Event('PRODUCT', 'CREATED', **new_product.__dict__))
 
                 product_ids.append(str(new_product.id))
             else:
@@ -67,17 +73,6 @@ def no_params():
 
         return json.dumps({'status': 'ok',
                            'ids': product_ids})
-
-
-@app.route('/product/<product_id>', methods=['GET'])
-@app.route('/product/<product_id>', methods=['PUT'])
-@app.route('/product/<product_id>', methods=['DELETE'])
-def one_param(product_id):
-
-    # handle GET
-    if request.method == 'GET':
-        product = repo.get_item(product_id)
-        return json.dumps(product.__dict__) if product else json.dumps(False)
 
     # handle PUT
     if request.methdo == 'PUT':
@@ -91,9 +86,7 @@ def one_param(product_id):
         if repo.set_item(product):
 
             # trigger event
-            event = Event('PRODUCT', 'UPDATED', **product.__dict__)
-            store.save(event)
-            store.publish(event)
+            store.publish(Event('PRODUCT', 'UPDATED', **product.__dict__))
 
             return json.dumps({'status': 'ok'})
         else:
@@ -105,9 +98,7 @@ def one_param(product_id):
         if product:
 
             # trigger event
-            event = Event('PRODUCT', 'DELETED', **product.__dict__)
-            store.save(event)
-            store.publish(event)
+            store.publish(Event('PRODUCT', 'DELETED', **product.__dict__))
 
             return json.dumps({'status': 'ok'})
         else:
