@@ -1,7 +1,8 @@
-import requests
-import unittest
 import random
 import string
+import unittest
+
+import requests
 
 
 BASE_URL = 'http://localhost:5000'
