@@ -1,7 +1,6 @@
 import json
-import logging
 import signal
-import datetime
+import traceback
 
 from redis import StrictRedis
 
@@ -12,20 +11,20 @@ from ordershop.lib.event_store import EventStore
 
 redis = StrictRedis(decode_responses=True, host='redis')
 store = EventStore(redis)
-logger = logging.getLogger()
 
 
 def log_info(msg):
-    logger.info('[{}] INFO in crm_service: {}'.format(datetime.time(), msg))
+    print('INFO in crm_service: {}'.format(msg))
 
 
-def log_error(msg):
-    logger.info('[{}] ERROR in crm_service: {}'.format(datetime.time(), msg))
+def log_error(e):
+    print(e)
+    traceback.print_exc()
 
 
-def customer_created(message):
+def customer_created(item):
     try:
-        msg_data = json.loads(message['data'])
+        msg_data = json.loads(item[1][0][1]['entity'])
         msg = """Dear {}!
 
 Welcome to Ordershop.
@@ -37,12 +36,12 @@ Cheers""".format(msg_data['name'])
             "msg": msg
         })
     except Exception as e:
-        log_error(str(e))
+        log_error(e)
 
 
-def customer_deleted(message):
+def customer_deleted(item):
     try:
-        msg_data = json.loads(message['data'])
+        msg_data = json.loads(item[1][0][1]['entity'])
         msg = """Dear {}!
 
 Good bye, hope to see you soon again at Ordershop.
@@ -54,13 +53,12 @@ Cheers""".format(msg_data['name'])
             "msg": msg
         })
     except Exception as e:
-        log_error(str(e))
+        log_error(e)
 
 
-def order_created(message):
+def order_created(item):
     try:
-        msg_data = json.loads(message['data'])
-
+        msg_data = json.loads(item[1][0][1]['entity'])
         customer = store.find_one('CUSTOMER', msg_data['customer_id'])
         products = [store.find_one('PRODUCT', product_id) for product_id in msg_data['product_ids']]
         msg = """Dear {}!
@@ -75,7 +73,7 @@ Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for
             "msg": msg
         })
     except Exception as e:
-        log_error(str(e))
+        log_error(e)
 
 
 def subscribe():
@@ -86,9 +84,9 @@ def subscribe():
 
 
 def exit_gracefully(signum, frame):
-    store.unsubscribe('CUSTOMER', 'CREATED')
-    store.unsubscribe('CUSTOMER', 'DELETED')
-    store.unsubscribe('ORDER', 'CREATED')
+    store.unsubscribe('CUSTOMER', 'CREATED', customer_created)
+    store.unsubscribe('CUSTOMER', 'DELETED', customer_deleted)
+    store.unsubscribe('ORDER', 'CREATED', order_created)
     log_info('unsubscribed from channels')
 
 

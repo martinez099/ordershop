@@ -3,9 +3,11 @@ import string
 import unittest
 
 import requests
-
+import redis
 
 BASE_URL = 'http://localhost:5000'
+
+r = redis.StrictRedis()
 
 
 class OrderShopTestCase(unittest.TestCase):
@@ -195,7 +197,8 @@ class OrderShopTestCase(unittest.TestCase):
         customer_id = None
         while not customer_id:
             idx = random.randrange(len(customers))
-            customer_id = customers[idx]['id'] if customers[idx]['id'] != but else None
+            customer = customers[idx]
+            customer_id = customer['id'] if customer['id'] != but else None
         return customer_id
 
     @staticmethod
@@ -203,7 +206,8 @@ class OrderShopTestCase(unittest.TestCase):
         product_id = None
         while not product_id:
             idx = random.randrange(len(products))
-            product_id = products[idx]['id'] if products[idx]['id'] != but else None
+            product = products[idx]
+            product_id = product['id'] if product['id'] != but else None
         return product_id
 
     @staticmethod

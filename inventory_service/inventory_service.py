@@ -13,16 +13,26 @@ class Product(Entity):
     Product Entity
     """
 
-    def __init__(self, _name, _price):
+    def __init__(self, _name, _price, _amount=0):
         super(Product, self).__init__()
         self.name = _name
         self.price = _price
+        self.amount = _amount
 
     def get_name(self):
         return self.name
 
     def get_price(self):
         return self.price
+
+    def incr_amount(self, _amount):
+        self.amount += _amount or 1
+
+    def decr_amount(self, _amount):
+        self.amount -= _amount or 1
+
+    def get_amount(self):
+        return self.amount
 
 
 app = Flask(__name__)

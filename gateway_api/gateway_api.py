@@ -76,7 +76,7 @@ def customer_command(customer_id=None):
 def product_query(product_id=None):
 
     if product_id:
-        product = store.find_one('PRODUCT', product_id)
+        product = store.find_one('PRODUCT', product_id) or False
         return json.dumps(product) if product else json.dumps(False)
     else:
         products = store.find_all('PRODUCT').values()

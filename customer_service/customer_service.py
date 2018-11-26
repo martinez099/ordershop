@@ -17,12 +17,19 @@ class Customer(Entity):
         super(Customer, self).__init__()
         self.name = _name
         self.email = _email
+        self.active = True
 
     def get_name(self):
         return self.name
 
     def get_email(self):
         return self.email
+
+    def set_active(self, _active):
+        self.active = _active
+
+    def is_active(self):
+        return self.active
 
 
 app = Flask(__name__)

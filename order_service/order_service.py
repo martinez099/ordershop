@@ -1,4 +1,5 @@
 import json
+import time
 
 from redis import StrictRedis
 from flask import request
@@ -15,6 +16,7 @@ class Order(Entity):
 
     def __init__(self, _product_ids, _customer_id):
         super(Order, self).__init__()
+        self.created = time.time()
         self.product_ids = _product_ids
         self.customer_id = _customer_id
 
