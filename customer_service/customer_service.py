@@ -1,11 +1,13 @@
+import atexit
 import json
+import os
 
 from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from ordershop.lib.event_store import EventStore, Event
-from ordershop.lib.repository import Repository, Entity
+from lib.event_store import EventStore, Event
+from lib.repository import Repository, Entity
 
 
 class Customer(Entity):
@@ -17,7 +19,6 @@ class Customer(Entity):
         super(Customer, self).__init__()
         self.name = _name
         self.email = _email
-        self.active = True
 
     def get_name(self):
         return self.name
@@ -25,22 +26,20 @@ class Customer(Entity):
     def get_email(self):
         return self.email
 
-    def set_active(self, _active):
-        self.active = _active
-
-    def is_active(self):
-        return self.active
-
 
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
 repo = Repository()
 store = EventStore(redis)
 
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_to_customer_events'):
+    store.subscribe_to_customer_events()
+    atexit.register(store.unsubscribe_from_customer_events)
+
 
 @app.route('/customers', methods=['GET'])
 @app.route('/customer/<customer_id>', methods=['GET'])
-def query(customer_id=None):
+def get(customer_id=None):
 
     if customer_id:
         customer = repo.get_item(customer_id)
@@ -51,65 +50,65 @@ def query(customer_id=None):
 
 @app.route('/customers', methods=['POST'])
 @app.route('/customer', methods=['POST'])
-@app.route('/customer/<customer_id>', methods=['PUT'])
-@app.route('/customer/<customer_id>', methods=['DELETE'])
-def command(customer_id=None):
+def post():
 
-    # handle POST
-    if request.method == 'POST':
-        values = request.get_json()
+    values = request.get_json()
 
-        if not isinstance(values, list):
-            values = [values]
+    if not isinstance(values, list):
+        values = [values]
 
-        customer_ids = []
-        for value in values:
-            try:
-                new_customer = Customer(value['name'], value['email'])
-            except KeyError:
-                raise ValueError("missing mandatory parameter 'name' and/or 'email'")
-
-            if repo.set_item(new_customer):
-
-                # trigger event
-                store.publish(Event('CUSTOMER', 'CREATED', **new_customer.__dict__))
-
-                customer_ids.append(str(new_customer.id))
-            else:
-                raise ValueError("could not create customer")
-
-        return json.dumps({'status': 'ok',
-                           'ids': customer_ids})
-
-    # handle PUT
-    if request.method == 'PUT':
-        value = request.get_json()
+    customer_ids = []
+    for value in values:
         try:
-            customer = Customer(value['name'], value['email'])
+            new_customer = Customer(value['name'], value['email'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'name' and/or 'email'")
 
-        customer.id = customer_id
-        if repo.set_item(customer):
+        if repo.set_item(new_customer):
 
             # trigger event
-            store.publish(Event('CUSTOMER', 'UPDATED', **customer.__dict__))
+            store.publish(Event('customer', 'created', **new_customer.__dict__))
 
-            return json.dumps({'status': 'ok'})
+            customer_ids.append(str(new_customer.id))
         else:
-            raise ValueError("could not update customer")
+            raise ValueError("could not create customer")
 
-    # handle DELETE
-    if request.method == 'DELETE':
-        customer = repo.del_item(customer_id)
-        if customer:
+    return json.dumps({'status': 'ok',
+                       'ids': customer_ids})
 
-            # trigger event
-            store.publish(Event('CUSTOMER', 'DELETED', **customer.__dict__))
 
-            return json.dumps({'status': 'ok'})
-        else:
-            raise ValueError("could not delete customer")
+@app.route('/customer/<customer_id>', methods=['PUT'])
+def put(customer_id=None):
+
+    value = request.get_json()
+    try:
+        customer = Customer(value['name'], value['email'])
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'name' and/or 'email'")
+
+    customer.id = customer_id
+    if repo.set_item(customer):
+
+        # trigger event
+        store.publish(Event('customer', 'updated', **customer.__dict__))
+
+        return json.dumps({'status': 'ok'})
+    else:
+        raise ValueError("could not update customer")
+
+
+@app.route('/customer/<customer_id>', methods=['DELETE'])
+def delete(customer_id=None):
+
+    customer = repo.del_item(customer_id)
+    if customer:
+
+        # trigger event
+        store.publish(Event('customer', 'deleted', **customer.__dict__))
+
+        return json.dumps({'status': 'ok'})
+    else:
+        raise ValueError("could not delete customer")
 
 
 @app.route('/clear', methods=['POST'])

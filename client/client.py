@@ -7,7 +7,7 @@ import redis
 
 BASE_URL = 'http://localhost:5000'
 
-r = redis.StrictRedis()
+r = redis.StrictRedis(decode_responses=True)
 
 
 class OrderShopTestCase(unittest.TestCase):
@@ -62,7 +62,7 @@ class OrderShopTestCase(unittest.TestCase):
         products = rsp.json()
 
         # create orders
-        orders = OrderShopTestCase.create_orders(100, customers, products)
+        orders = OrderShopTestCase.create_orders(10, customers, products)
         rsp = requests.post('{}/orders'.format(BASE_URL), json=orders)
         OrderShopTestCase.check_status_code(rsp)
 
@@ -157,7 +157,6 @@ class OrderShopTestCase(unittest.TestCase):
             products.append(rsp.json())
 
         # check result
-        assert products
         assert len(products) == len(product_ids)
 
     @staticmethod

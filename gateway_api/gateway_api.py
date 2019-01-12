@@ -6,7 +6,7 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from ordershop.lib.event_store import EventStore
+from lib.event_store import EventStore
 
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
@@ -55,10 +55,10 @@ def proxy_command_request(_base_url):
 def customer_query(customer_id=None):
 
     if customer_id:
-        customer = store.find_one('CUSTOMER', customer_id)
+        customer = store.find_one('customer', customer_id)
         return json.dumps(customer) if customer else json.dumps(False)
     else:
-        customers = store.find_all('CUSTOMER').values()
+        customers = store.find_all('customer').values()
         return json.dumps(list(customers))
 
 
@@ -76,10 +76,10 @@ def customer_command(customer_id=None):
 def product_query(product_id=None):
 
     if product_id:
-        product = store.find_one('PRODUCT', product_id) or False
+        product = store.find_one('product', product_id) or False
         return json.dumps(product) if product else json.dumps(False)
     else:
-        products = store.find_all('PRODUCT').values()
+        products = store.find_all('product').values()
         return json.dumps(list(products))
 
 
@@ -97,10 +97,10 @@ def product_command(product_id=None):
 def order_query(order_id=None):
 
     if order_id:
-        order = store.find_one('ORDER', order_id)
+        order = store.find_one('order', order_id)
         return json.dumps(order) if order else json.dumps(False)
     else:
-        orders = store.find_all('ORDER').values()
+        orders = store.find_all('order').values()
         return json.dumps(list(orders))
 
 
@@ -116,9 +116,9 @@ def order_command(order_id=None):
 @app.route('/report', methods=['GET'])
 def report():
 
-    products = store.find_all('PRODUCT')
-    customers = store.find_all('CUSTOMER')
-    orders = store.find_all('ORDER')
+    products = store.find_all('product')
+    customers = store.find_all('customer')
+    orders = store.find_all('order')
 
     result = {
         "products": list(products.values()),

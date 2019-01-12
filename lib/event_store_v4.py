@@ -72,12 +72,14 @@ end
         :param _event: The event to publish.
         :return: Success.
         """
-        event_key = 'EVENT:{}'.format('{' + _event.topic + '}')
+        event_key = 'event:{}'.format('{' + _event.topic + '}')
+        #event_key = 'event:{}'.format(_event.topic)
         event_key = event_key + '_{}:{}'.format(_event.action, _event.id)
 
-        events_key = 'EVENTS:{}'.format('{' + _event.topic + '}')
+        events_key = 'events:{}'.format('{' + _event.topic + '}')
+        #events_key = 'events:{}'.format(_event.topic)
 
-        channel = 'EVENT:{}_{}'.format(_event.topic, _event.action)
+        channel = 'event:{}_{}'.format(_event.topic, _event.action)
         payload = json.dumps(_event.entity)
         timestamp = _event.ts
 
@@ -92,7 +94,7 @@ end
         :param _handler: The event handler.
         :return: Success.
         """
-        key = 'EVENT:{}_{}'.format(_topic, _action)
+        key = 'event:{}_{}'.format(_topic, _action)
         result = self.pubsub.subscribe(**{key: _handler})
 
         # start background thread
@@ -109,7 +111,7 @@ end
         :param _action: The event action.
         :return: Success.
         """
-        key = 'EVENT:{}_{}'.format(_topic, _action)
+        key = 'event:{}_{}'.format(_topic, _action)
         result = self.pubsub.unsubscribe(key)
 
         # stop background thread
@@ -139,24 +141,24 @@ end
         result = {}
 
         # get all event ids for that topic
-        event_ids = self.redis.zrange('EVENTS:{}'.format('{' + _topic + '}'), 0, -1)
+        event_ids = self.redis.zrange('events:{}'.format('{' + _topic + '}'), 0, -1)
 
         # get created entities
-        created_eids = list(filter(lambda x: x.startswith('EVENT:{}_CREATED'.format('{' + _topic + '}')), event_ids))
+        created_eids = list(filter(lambda x: x.startswith('event:{}_created'.format('{' + _topic + '}')), event_ids))
         if created_eids:
             created_events = list(map(lambda x: json.loads(x), self.redis.mget(created_eids)))
             created_ids = list(map(lambda x: x['id'], created_events))
             result = dict(zip(created_ids, created_events))
 
         # remove deleted entities
-        deleted_eids = list(filter(lambda x: x.startswith('EVENT:{}_DELETED'.format('{' + _topic + '}')), event_ids))
+        deleted_eids = list(filter(lambda x: x.startswith('event:{}_deleted'.format('{' + _topic + '}')), event_ids))
         if deleted_eids:
             deleted_events = list(map(lambda x: json.loads(x), self.redis.mget(deleted_eids)))
             deleted_ids = list(map(lambda x: x['id'], deleted_events))
             result = EventStore.filter_deleted(result, deleted_ids)
 
         # adapt updated entities
-        updated_eids = list(filter(lambda x: x.startswith('EVENT:{}_UPDATED'.format('{' + _topic + '}')), event_ids))
+        updated_eids = list(filter(lambda x: x.startswith('event:{}_updated'.format('{' + _topic + '}')), event_ids))
         if updated_eids:
             updated_events = list(map(lambda x: json.loads(x), self.redis.mget(updated_eids)))
             updated_map = dict(zip(list(map(lambda x: x['id'], updated_events)), updated_events))

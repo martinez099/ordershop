@@ -3,33 +3,33 @@ services:
   customer-service:
     build: customer_service
     volumes:
-    - .:/app/ordershop
+    - .:/app
     - logvolume01:/var/log
     links:
     - redis
   order-service:
     build: order_service
     volumes:
-    - .:/app/ordershop
+    - .:/app
     - logvolume01:/var/log
     links:
     - redis
   inventory-service:
     build: inventory_service
     volumes:
-    - .:/app/ordershop
+    - .:/app
     - logvolume01:/var/log
     links:
     - redis
   msg-service:
     build: msg_service
     volumes:
-    - .:/app/ordershop
+    - .:/app
     - logvolume01:/var/log
   crm-service:
     build: crm_service
     volumes:
-    - .:/app/ordershop
+    - .:/app
     - logvolume01:/var/log
     links:
     - redis
@@ -38,7 +38,7 @@ services:
     ports:
     - "5000:5000"
     volumes:
-    - .:/app/ordershop
+    - .:/app
     - logvolume01:/var/log
     links:
     - redis

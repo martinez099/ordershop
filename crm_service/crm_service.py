@@ -1,12 +1,12 @@
+import atexit
 import json
-import signal
 import traceback
 
 from redis import StrictRedis
 
 import requests
 
-from ordershop.lib.event_store import EventStore
+from lib.event_store import EventStore
 
 
 redis = StrictRedis(decode_responses=True, host='redis')
@@ -59,8 +59,8 @@ Cheers""".format(msg_data['name'])
 def order_created(item):
     try:
         msg_data = json.loads(item[1][0][1]['entity'])
-        customer = store.find_one('CUSTOMER', msg_data['customer_id'])
-        products = [store.find_one('PRODUCT', product_id) for product_id in msg_data['product_ids']]
+        customer = store.find_one('customer', msg_data['customer_id'])
+        products = [store.find_one('product', product_id) for product_id in msg_data['product_ids']]
         msg = """Dear {}!
 
 Thank you for buying following {} products from Ordershop:
@@ -77,20 +77,18 @@ Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for
 
 
 def subscribe():
-    store.subscribe('CUSTOMER', 'CREATED', customer_created)
-    store.subscribe('CUSTOMER', 'DELETED', customer_deleted)
-    store.subscribe('ORDER', 'CREATED', order_created)
+    store.subscribe('customer', 'created', customer_created)
+    store.subscribe('customer', 'deleted', customer_deleted)
+    store.subscribe('order', 'created', order_created)
     log_info('subscribed to channels')
 
 
-def exit_gracefully(signum, frame):
-    store.unsubscribe('CUSTOMER', 'CREATED', customer_created)
-    store.unsubscribe('CUSTOMER', 'DELETED', customer_deleted)
-    store.unsubscribe('ORDER', 'CREATED', order_created)
+def unsubscribe():
+    store.unsubscribe('customer', 'created', customer_created)
+    store.unsubscribe('customer', 'deleted', customer_deleted)
+    store.unsubscribe('order', 'created', order_created)
     log_info('unsubscribed from channels')
 
 
-signal.signal(signal.SIGINT, exit_gracefully)
-signal.signal(signal.SIGTERM, exit_gracefully)
-
 subscribe()
+atexit.register(unsubscribe)

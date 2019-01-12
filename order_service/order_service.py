@@ -1,12 +1,13 @@
+import atexit
 import json
-import time
+import os
 
 from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from ordershop.lib.event_store import EventStore, Event
-from ordershop.lib.repository import Repository, Entity
+from lib.event_store import EventStore, Event
+from lib.repository import Repository, Entity
 
 
 class Order(Entity):
@@ -16,7 +17,6 @@ class Order(Entity):
 
     def __init__(self, _product_ids, _customer_id):
         super(Order, self).__init__()
-        self.created = time.time()
         self.product_ids = _product_ids
         self.customer_id = _customer_id
 
@@ -32,10 +32,14 @@ redis = StrictRedis(decode_responses=True, host='redis')
 repo = Repository()
 store = EventStore(redis)
 
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_to_order_events'):
+    store.subscribe_to_order_events()
+    atexit.register(store.unsubscribe_from_order_events)
+
 
 @app.route('/orders', methods=['GET'])
 @app.route('/order/<order_id>', methods=['GET'])
-def query(order_id=None):
+def get(order_id=None):
 
     if order_id:
         order = repo.get_item(order_id)
@@ -46,65 +50,65 @@ def query(order_id=None):
 
 @app.route('/orders', methods=['POST'])
 @app.route('/order', methods=['POST'])
-@app.route('/order/<order_id>', methods=['PUT'])
-@app.route('/order/<order_id>', methods=['DELETE'])
-def command(order_id=None):
+def post():
 
-    # handle POST
-    if request.method == 'POST':
-        values = request.get_json()
+    values = request.get_json()
 
-        if not isinstance(values, list):
-            values = [values]
+    if not isinstance(values, list):
+        values = [values]
 
-        order_ids = []
-        for value in values:
-            try:
-                new_order = Order(value['product_ids'], value['customer_id'])
-            except KeyError:
-                raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
-
-            if repo.set_item(new_order):
-
-                # trigger event
-                store.publish(Event('ORDER', 'CREATED', **new_order.__dict__))
-
-                order_ids.append(str(new_order.id))
-            else:
-                raise ValueError("could not create order")
-
-        return json.dumps({'status': 'ok',
-                           'ids': order_ids})
-
-    # handle PUT
-    if request.method == 'PUT':
-        value = request.get_json()
+    order_ids = []
+    for value in values:
         try:
-            order = Order(value['product_ids'], value['customer_id'])
+            new_order = Order(value['product_ids'], value['customer_id'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
-        order.id = order_id
-        if repo.set_item(order):
+        if repo.set_item(new_order):
 
             # trigger event
-            store.publish(Event('ORDER', 'UPDATED', **order.__dict__))
+            store.publish(Event('order', 'created', **new_order.__dict__))
 
-            return json.dumps({'status': 'ok'})
+            order_ids.append(str(new_order.id))
         else:
-            raise ValueError("could not update order")
+            raise ValueError("could not create order")
 
-    # handle DELETE
-    if request.method == 'DELETE':
-        order = repo.del_item(order_id)
-        if order:
+    return json.dumps({'status': 'ok',
+                       'ids': order_ids})
 
-            # trigger event
-            store.publish(Event('ORDER', 'DELETED', **order.__dict__))
 
-            return json.dumps({'status': 'ok'})
-        else:
-            raise ValueError("could not delete order")
+@app.route('/order/<order_id>', methods=['PUT'])
+def put(order_id=None):
+
+    value = request.get_json()
+    try:
+        order = Order(value['product_ids'], value['customer_id'])
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
+
+    order.id = order_id
+    if repo.set_item(order):
+
+        # trigger event
+        store.publish(Event('order', 'updated', **order.__dict__))
+
+        return json.dumps({'status': 'ok'})
+    else:
+        raise ValueError("could not update order")
+
+
+@app.route('/order/<order_id>', methods=['DELETE'])
+def delete(order_id=None):
+
+    order = repo.del_item(order_id)
+    if order:
+
+        # trigger event
+        store.publish(Event('order', 'deleted', **order.__dict__))
+
+        return json.dumps({'status': 'ok'})
+    else:
+        raise ValueError("could not delete order")
 
 
 @app.route('/clear', methods=['POST'])

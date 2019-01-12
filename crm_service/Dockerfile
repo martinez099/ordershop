@@ -3,12 +3,10 @@ FROM python:3
 RUN pip install redis
 RUN pip install requests
 
-RUN mkdir -p /app/ordershop
+RUN mkdir -p /app
 
 ENV PYTHONPATH /app
 
 EXPOSE 5000
 
-VOLUME /app/ordershop
-
-CMD [ "python", "/app/ordershop/crm_service/crm_service.py" ]
+CMD [ "python", "/app/crm_service/crm_service.py" ]
