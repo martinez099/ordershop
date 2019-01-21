@@ -1,50 +1,64 @@
 version: '3'
 services:
-  customer-service:
-    build: customer_service
+  billing-service:
+    build: billing_service
     volumes:
-    - .:/app
-    - logvolume01:/var/log
+      - .:/app
+      - logvolume01:/var/log
     links:
-    - redis
-  order-service:
-    build: order_service
-    volumes:
-    - .:/app
-    - logvolume01:/var/log
-    links:
-    - redis
-  inventory-service:
-    build: inventory_service
-    volumes:
-    - .:/app
-    - logvolume01:/var/log
-    links:
-    - redis
-  msg-service:
-    build: msg_service
-    volumes:
-    - .:/app
-    - logvolume01:/var/log
+      - redis
   crm-service:
     build: crm_service
     volumes:
-    - .:/app
-    - logvolume01:/var/log
+      - .:/app
+      - logvolume01:/var/log
     links:
-    - redis
+      - redis
+  customer-service:
+    build: customer_service
+    volumes:
+      - .:/app
+      - logvolume01:/var/log
+    links:
+      - redis
   gateway-api:
     build: gateway_api
     ports:
-    - "5000:5000"
+      - "5000:5000"
     volumes:
-    - .:/app
-    - logvolume01:/var/log
+      - .:/app
+      - logvolume01:/var/log
     links:
-    - redis
+      - redis
+  inventory-service:
+    build: inventory_service
+    volumes:
+      - .:/app
+      - logvolume01:/var/log
+    links:
+      - redis
+  msg-service:
+    build: msg_service
+    volumes:
+      - .:/app
+      - logvolume01:/var/log
+  order-service:
+    build: order_service
+    volumes:
+      - .:/app
+      - logvolume01:/var/log
+    links:
+      - redis
+  product-service:
+    build: product_service
+    volumes:
+      - .:/app
+      - logvolume01:/var/log
+    links:
+      - redis
   redis:
     image: redis
     ports:
-    - "6379:6379"
+      - "6379:6379"
 volumes:
   logvolume01: {}

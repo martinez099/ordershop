@@ -7,4 +7,4 @@ RUN mkdir -p /app
 
 ENV PYTHONPATH /app
 
-CMD [ "python", "/app/crm_service/crm_service.py" ]
+CMD [ "python", "/app/billing_service/billing_service.py" ]

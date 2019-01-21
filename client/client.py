@@ -49,6 +49,24 @@ class OrderShopTestCase(unittest.TestCase):
         assert len(products) == len(rsp.json())
 
     @staticmethod
+    def test_2a_create_inventory():
+
+        # load products
+        rsp = requests.get('{}/products'.format(BASE_URL))
+        OrderShopTestCase.check_status_code(rsp)
+        products = rsp.json()
+
+        # create inventory
+        inventory = OrderShopTestCase.create_inventory([product['id'] for product in products], 10)
+        rsp = requests.post('{}/inventory'.format(BASE_URL), json=inventory)
+        OrderShopTestCase.check_status_code(rsp)
+
+        # check result
+        rsp = requests.get('{}/inventory'.format(BASE_URL))
+        OrderShopTestCase.check_status_code(rsp)
+        assert len(inventory) == len(rsp.json())
+
+    @staticmethod
     def test_3_create_orders():
 
         # load customers
@@ -61,15 +79,24 @@ class OrderShopTestCase(unittest.TestCase):
         OrderShopTestCase.check_status_code(rsp)
         products = rsp.json()
 
+        # load inventory
+        rsp = requests.get('{}/inventory'.format(BASE_URL))
+        OrderShopTestCase.check_status_code(rsp)
+        inventory = rsp.json()
+
         # create orders
         orders = OrderShopTestCase.create_orders(10, customers, products)
-        rsp = requests.post('{}/orders'.format(BASE_URL), json=orders)
-        OrderShopTestCase.check_status_code(rsp)
+        ordered = 0
+        for order in orders:
+            if OrderShopTestCase.check_inventory(order, inventory):
+                rsp = requests.post('{}/orders'.format(BASE_URL), json=order)
+                OrderShopTestCase.check_status_code(rsp)
+                ordered += 1
 
         # check result
         rsp = requests.get('{}/orders'.format(BASE_URL))
         OrderShopTestCase.check_status_code(rsp)
-        assert len(orders) == len(rsp.json())
+        assert ordered == len(rsp.json())
 
     @staticmethod
     def test_4_update_second_order():
@@ -182,6 +209,16 @@ class OrderShopTestCase(unittest.TestCase):
         return products
 
     @staticmethod
+    def create_inventory(product_ids, amount):
+        inventory = []
+        for product_id in product_ids:
+            inventory.append({
+                "product_id": product_id,
+                "amount": amount
+            })
+        return inventory
+
+    @staticmethod
     def create_orders(amount, customers, products):
         orders = []
         for _ in range(amount):
@@ -208,6 +245,18 @@ class OrderShopTestCase(unittest.TestCase):
             product = products[idx]
             product_id = product['id'] if product['id'] != but else None
         return product_id
+
+    @staticmethod
+    def check_inventory(order, inventory):
+        for inv in inventory:
+            occurs = order['product_ids'].count(inv['product_id'])
+            inv['amount'] = int(inv['amount'])
+            if occurs <= inv['amount']:
+                inv['amount'] -= occurs
+            else:
+                return False
+
+        return True
 
     @staticmethod
     def check_status_code(response):

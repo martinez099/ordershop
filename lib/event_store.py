@@ -3,6 +3,8 @@ import time
 import uuid
 import threading
 
+import lib.common
+
 
 class Event(object):
     """
@@ -97,7 +99,19 @@ class EventStore(object):
         :param _id: The event id.
         :return: The event dict.
         """
-        return self.find_all(_topic).get(_id)
+        if self.redis.exists('{}_entity:{}'.format(_topic, _id)):
+
+            # read from cache
+            result = self.redis.hgetall('{}_entity:{}'.format(_topic, _id))
+            for k, v in result.items():
+                if lib.common.is_key(v):
+                    result[k] = self.redis.lrange(v, 0, -1)
+
+        else:
+
+            result = self.find_all(_topic).get(_id)
+
+        return result
 
     def find_all(self, _topic):
         """
@@ -108,37 +122,32 @@ class EventStore(object):
         """
         result = {}
 
-        def is_key(_value):
-            return '_' in _value and ':' in _value
-
         if self.redis.exists('{}_IDs'.format(_topic)):
 
             # read from cache
             for eid in self.redis.lrange('{}_IDs'.format(_topic), 0, -1):
                 result[eid] = self.redis.hgetall('{}_entity:{}'.format(_topic, eid))
                 for k, v in result[eid].items():
-                    if is_key(v):
+                    if lib.common.is_key(v):
                         result[eid][k] = self.redis.lrange(v, 0, -1)
-                    else:
-                        result[eid][k] = v
 
         else:
 
             # get created entities
-            created_events = self.redis.xrange('{}_created'.format(_topic))
+            created_events = self.redis.xrange('events:{}_created'.format(_topic))
             if created_events:
                 created_entities = map(lambda x: json.loads(x[1]['entity']), created_events)
                 result = dict(map(lambda x: (x['id'], x), created_entities))
 
             # remove deleted entities
-            deleted_events = self.redis.xrange('{}_deleted'.format(_topic))
+            deleted_events = self.redis.xrange('events:{}_deleted'.format(_topic))
             if deleted_events:
                 deleted_entities = map(lambda x: json.loads(x[1]['entity']), deleted_events)
                 deleted_entities = map(lambda x: x['id'], deleted_entities)
                 result = remove_deleted(result, deleted_entities)
 
             # set updated entities
-            updated_events = self.redis.xrange('{}_updated'.format(_topic))
+            updated_events = self.redis.xrange('events:{}_updated'.format(_topic))
             if updated_events:
                 updated_entities = map(lambda x: json.loads(x[1]['entity']), updated_events)
                 updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
@@ -162,6 +171,11 @@ class EventStore(object):
         self.subscribe('product', 'deleted', self.product_deleted)
         self.subscribe('product', 'updated', self.product_updated)
 
+    def subscribe_to_inventory_events(self):
+        self.subscribe('inventory', 'created', self.inventory_created)
+        self.subscribe('inventory', 'deleted', self.inventory_deleted)
+        self.subscribe('inventory', 'updated', self.inventory_updated)
+
     def subscribe_to_customer_events(self):
         self.subscribe('customer', 'created', self.customer_created)
         self.subscribe('customer', 'deleted', self.customer_deleted)
@@ -176,6 +190,11 @@ class EventStore(object):
         self.unsubscribe('product', 'created', self.product_created)
         self.unsubscribe('product', 'deleted', self.product_deleted)
         self.unsubscribe('product', 'updated', self.product_updated)
+
+    def unsubscribe_from_inventory_events(self):
+        self.unsubscribe('inventory', 'created', self.inventory_created)
+        self.unsubscribe('inventory', 'deleted', self.inventory_deleted)
+        self.unsubscribe('inventory', 'updated', self.inventory_updated)
 
     def unsubscribe_from_customer_events(self):
         self.unsubscribe('customer', 'created', self.customer_created)
@@ -203,6 +222,38 @@ class EventStore(object):
         if self.redis.exists('{}_IDs'.format('product')):
             product = json.loads(item[1][0][1]['entity'])
             self.redis.hmset('{}_entity:{}'.format('product', product['id']), product)
+
+    def inventory_created(self, item):
+        if self.redis.exists('{}_IDs'.format('inventory')):
+            inventory = json.loads(item[1][0][1]['entity'])
+            self.redis.rpush('{}_IDs'.format('inventory'), inventory['id'])
+            for k, v in inventory.items():
+                if isinstance(v, list):
+                    lid = '{}_{}:{}'.format('inventory', k, inventory['id'])
+                    self.redis.hset('{}_entity:{}'.format('inventory', inventory['id']), k, lid)
+                    self.redis.rpush(lid, *v)
+                else:
+                    self.redis.hset('{}_entity:{}'.format('inventory', inventory['id']), k, v)
+
+    def inventory_deleted(self, item):
+        if self.redis.exists('{}_IDs'.format('inventory')):
+            inventory = json.loads(item[1][0][1]['entity'])
+            self.redis.lrem('{}_IDs'.format('inventory'), 1, inventory['id'])
+            self.redis.delete('{}_entity:{}'.format('inventory', inventory['id']))
+            for k, v in inventory.items():
+                if isinstance(v, list):
+                    self.redis.delete('{}_{}:{}'.format('inventory', k, inventory['id']))
+
+    def inventory_updated(self, item):
+        if self.redis.exists('{}_IDs'.format('inventory')):
+            inventory = json.loads(item[1][0][1]['entity'])
+            for k, v in inventory.items():
+                if isinstance(v, list):
+                    lid = '{}_{}:{}'.format('inventory', k, inventory['id'])
+                    self.redis.delete(lid)
+                    self.redis.rpush(lid, *v)
+                else:
+                    self.redis.hset('{}_entity:{}'.format('inventory', inventory['id']), k, v)
 
     def customer_created(self, item):
         if self.redis.exists('{}_IDs'.format('customer')):

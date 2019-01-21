@@ -62,8 +62,8 @@ def customer_query(customer_id=None):
         return json.dumps(list(customers))
 
 
-@app.route('/customers', methods=['POST'])
 @app.route('/customer', methods=['POST'])
+@app.route('/customers', methods=['POST'])
 @app.route('/customer/<customer_id>', methods=['PUT'])
 @app.route('/customer/<customer_id>', methods=['DELETE'])
 def customer_command(customer_id=None):
@@ -83,11 +83,31 @@ def product_query(product_id=None):
         return json.dumps(list(products))
 
 
-@app.route('/products', methods=['POST'])
 @app.route('/product', methods=['POST'])
+@app.route('/products', methods=['POST'])
 @app.route('/product/<product_id>', methods=['PUT'])
 @app.route('/product/<product_id>', methods=['DELETE'])
 def product_command(product_id=None):
+
+    return proxy_command_request('http://product-service:5000{}')
+
+
+@app.route('/inventory', methods=['GET'])
+@app.route('/inventory/<inventory_id>', methods=['GET'])
+def inventory_query(inventory_id=None):
+
+    if inventory_id:
+        inventory = store.find_one('inventory', inventory_id) or False
+        return json.dumps(inventory) if inventory else json.dumps(False)
+    else:
+        inventory = store.find_all('inventory').values()
+        return json.dumps(list(inventory))
+
+
+@app.route('/inventory', methods=['POST'])
+@app.route('/inventory/<inventory_id>', methods=['PUT'])
+@app.route('/inventory/<inventory_id>', methods=['DELETE'])
+def inventory_command(inventory_id=None):
 
     return proxy_command_request('http://inventory-service:5000{}')
 
@@ -104,8 +124,8 @@ def order_query(order_id=None):
         return json.dumps(list(orders))
 
 
-@app.route('/orders', methods=['POST'])
 @app.route('/order', methods=['POST'])
+@app.route('/orders', methods=['POST'])
 @app.route('/order/<order_id>', methods=['PUT'])
 @app.route('/order/<order_id>', methods=['DELETE'])
 def order_command(order_id=None):
@@ -117,11 +137,13 @@ def order_command(order_id=None):
 def report():
 
     products = store.find_all('product')
+    inventory = store.find_all('inventory')
     customers = store.find_all('customer')
     orders = store.find_all('order')
 
     result = {
         "products": list(products.values()),
+        "inventory": list(inventory.values()),
         "customers": list(customers.values()),
         "orders": list(orders.values())
     }
@@ -134,6 +156,7 @@ def clear():
 
     # clear repos
     for url in ['http://customer-service:5000/clear',
+                'http://product-service:5000/clear',
                 'http://inventory-service:5000/clear',
                 'http://order-service:5000/clear']:
 

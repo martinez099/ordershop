@@ -1,25 +1,16 @@
 import atexit
 import json
-import traceback
 
 from redis import StrictRedis
 
 import requests
 
+import lib.common
 from lib.event_store import EventStore
 
 
 redis = StrictRedis(decode_responses=True, host='redis')
 store = EventStore(redis)
-
-
-def log_info(msg):
-    print('INFO in crm_service: {}'.format(msg))
-
-
-def log_error(e):
-    print(e)
-    traceback.print_exc()
 
 
 def customer_created(item):
@@ -36,7 +27,7 @@ Cheers""".format(msg_data['name'])
             "msg": msg
         })
     except Exception as e:
-        log_error(e)
+        lib.common.log_error(e)
 
 
 def customer_deleted(item):
@@ -53,7 +44,7 @@ Cheers""".format(msg_data['name'])
             "msg": msg
         })
     except Exception as e:
-        log_error(e)
+        lib.common.log_error(e)
 
 
 def order_created(item):
@@ -73,21 +64,21 @@ Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for
             "msg": msg
         })
     except Exception as e:
-        log_error(e)
+        lib.common.log_error(e)
 
 
 def subscribe():
     store.subscribe('customer', 'created', customer_created)
     store.subscribe('customer', 'deleted', customer_deleted)
     store.subscribe('order', 'created', order_created)
-    log_info('subscribed to channels')
+    lib.common.log_info('subscribed to channels')
 
 
 def unsubscribe():
     store.unsubscribe('customer', 'created', customer_created)
     store.unsubscribe('customer', 'deleted', customer_deleted)
     store.unsubscribe('order', 'created', order_created)
-    log_info('unsubscribed from channels')
+    lib.common.log_info('unsubscribed from channels')
 
 
 subscribe()

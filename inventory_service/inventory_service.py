@@ -10,21 +10,27 @@ from lib.event_store import EventStore, Event
 from lib.repository import Repository, Entity
 
 
-class Product(Entity):
+class Inventory(Entity):
     """
-    Product Entity
+    Inventory Entity class.
     """
 
-    def __init__(self, _name, _price):
-        super(Product, self).__init__()
-        self.name = _name
-        self.price = _price
+    def __init__(self, _product_id, _amount):
+        super(Inventory, self).__init__()
+        self.product_id = _product_id
+        self.amount = _amount
 
-    def get_name(self):
-        return self.name
+    def get_product_id(self):
+        return self.product_id
 
-    def get_price(self):
-        return self.price
+    def get_amount(self):
+        return self.amount
+
+    def decr_amount(self):
+        self.amount -= 1
+
+    def incr_amount(self):
+        self.amount += 1
 
 
 app = Flask(__name__)
@@ -33,23 +39,22 @@ repo = Repository()
 store = EventStore(redis)
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_to_product_events'):
-    store.subscribe_to_product_events()
-    atexit.register(store.unsubscribe_from_product_events)
+    store.subscribe_to_inventory_events()
+    atexit.register(store.unsubscribe_from_inventory_events)
 
 
-@app.route('/products', methods=['GET'])
-@app.route('/product/<product_id>', methods=['GET'])
-def get(product_id=None):
+@app.route('/inventory', methods=['GET'])
+@app.route('/inventory/<inventory_id>', methods=['GET'])
+def get(inventory_id=None):
 
-    if product_id:
-        product = repo.get_item(product_id)
-        return json.dumps(product.__dict__) if product else json.dumps(False)
+    if inventory_id:
+        item = repo.get_item(inventory_id)
+        return json.dumps(item.__dict__) if item else json.dumps(False)
     else:
         return json.dumps([item.__dict__ for item in repo.get_items()])
 
 
-@app.route('/products', methods=['POST'])
-@app.route('/product', methods=['POST'])
+@app.route('/inventory', methods=['POST'])
 def post():
 
     values = request.get_json()
@@ -57,58 +62,58 @@ def post():
     if not isinstance(values, list):
         values = [values]
 
-    product_ids = []
+    inventory_ids = []
     for value in values:
         try:
-            new_product = Product(value['name'], value['price'])
+            new_inventory = Inventory(value['product_id'], value['amount'])
         except KeyError:
-            raise ValueError("missing mandatory parameter 'name' and/or 'price'")
+            raise ValueError("missing mandatory parameter 'product_id' and/or 'amount'")
 
-        if repo.set_item(new_product):
+        if repo.set_item(new_inventory):
 
             # trigger event
-            store.publish(Event('product', 'created', **new_product.__dict__))
+            store.publish(Event('inventory', 'created', **new_inventory.__dict__))
 
-            product_ids.append(str(new_product.id))
+            inventory_ids.append(str(new_inventory.id))
         else:
-            raise ValueError("could not create product")
+            raise ValueError("could not create inventory")
 
     return json.dumps({'status': 'ok',
-                       'ids': product_ids})
+                       'ids': inventory_ids})
 
 
-@app.route('/product/<product_id>', methods=['PUT'])
-def put(product_id=None):
+@app.route('/inventory/<inventory_id>', methods=['PUT'])
+def put(inventory_id=None):
 
     value = request.get_json()
     try:
-        product = Product(value['name'], value['price'])
+        inventory = Inventory(value['product_id'], value['amount'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'name' and/or 'price'")
 
-    product.id = product_id
-    if repo.set_item(product):
+    inventory.id = inventory_id
+    if repo.set_item(inventory):
 
         # trigger event
-        store.publish(Event('product', 'updated', **product.__dict__))
+        store.publish(Event('inventory', 'updated', **inventory.__dict__))
 
         return json.dumps({'status': 'ok'})
     else:
-        raise ValueError("could not update product")
+        raise ValueError("could not update inventory")
 
 
 @app.route('/product/<product_id>', methods=['DELETE'])
-def delete(product_id=None):
+def delete(inventory_id=None):
 
-    product = repo.del_item(product_id)
-    if product:
+    inventory = repo.del_item(inventory_id)
+    if inventory:
 
         # trigger event
-        store.publish(Event('product', 'deleted', **product.__dict__))
+        store.publish(Event('inventory', 'deleted', **inventory.__dict__))
 
         return json.dumps({'status': 'ok'})
     else:
-        raise ValueError("could not delete product")
+        raise ValueError("could not delete inventory")
 
 
 @app.route('/clear', methods=['POST'])
