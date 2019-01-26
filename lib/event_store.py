@@ -186,6 +186,11 @@ class EventStore(object):
         self.subscribe('order', 'deleted', self.order_deleted)
         self.subscribe('order', 'updated', self.order_updated)
 
+    def subscribe_to_billing_events(self):
+        self.subscribe('billing', 'created', self.order_created)
+        self.subscribe('billing', 'deleted', self.order_deleted)
+        self.subscribe('billing', 'updated', self.order_updated)
+
     def unsubscribe_from_product_events(self):
         self.unsubscribe('product', 'created', self.product_created)
         self.unsubscribe('product', 'deleted', self.product_deleted)
@@ -205,6 +210,11 @@ class EventStore(object):
         self.unsubscribe('order', 'created', self.order_created)
         self.unsubscribe('order', 'deleted', self.order_deleted)
         self.unsubscribe('order', 'updated', self.order_updated)
+
+    def unsubscribe_from_billing_events(self):
+        self.unsubscribe('billing', 'created', self.order_created)
+        self.unsubscribe('billing', 'deleted', self.order_deleted)
+        self.unsubscribe('billing', 'updated', self.order_updated)
 
     def product_created(self, item):
         if self.redis.exists('{}_IDs'.format('product')):

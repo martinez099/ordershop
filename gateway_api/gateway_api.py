@@ -6,18 +6,12 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
+from lib.common import check_rsp
 from lib.event_store import EventStore
 
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
 store = EventStore(redis)
-
-
-def check_rsp(rsp):
-    if rsp.status_code == 200:
-        return rsp.text
-    else:
-        raise Exception(str(rsp))
 
 
 def proxy_command_request(_base_url):

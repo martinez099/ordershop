@@ -15,3 +15,10 @@ def log_error(_err):
 
 def is_key(_value):
     return '_' in _value and ':' in _value
+
+
+def check_rsp(_rsp):
+    if _rsp.status_code == 200:
+        return _rsp.text
+    else:
+        raise Exception(str(_rsp))

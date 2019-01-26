@@ -82,16 +82,14 @@ class OrderShopTestCase(unittest.TestCase):
         # load inventory
         rsp = requests.get('{}/inventory'.format(BASE_URL))
         OrderShopTestCase.check_status_code(rsp)
-        inventory = rsp.json()
 
         # create orders
         orders = OrderShopTestCase.create_orders(10, customers, products)
         ordered = 0
         for order in orders:
-            if OrderShopTestCase.check_inventory(order, inventory):
-                rsp = requests.post('{}/orders'.format(BASE_URL), json=order)
-                OrderShopTestCase.check_status_code(rsp)
-                ordered += 1
+            rsp = requests.post('{}/orders'.format(BASE_URL), json=order)
+            OrderShopTestCase.check_status_code(rsp)
+            ordered += 1
 
         # check result
         rsp = requests.get('{}/orders'.format(BASE_URL))
@@ -245,18 +243,6 @@ class OrderShopTestCase(unittest.TestCase):
             product = products[idx]
             product_id = product['id'] if product['id'] != but else None
         return product_id
-
-    @staticmethod
-    def check_inventory(order, inventory):
-        for inv in inventory:
-            occurs = order['product_ids'].count(inv['product_id'])
-            inv['amount'] = int(inv['amount'])
-            if occurs <= inv['amount']:
-                inv['amount'] -= occurs
-            else:
-                return False
-
-        return True
 
     @staticmethod
     def check_status_code(response):

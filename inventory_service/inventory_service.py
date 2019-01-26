@@ -26,11 +26,15 @@ class Inventory(Entity):
     def get_amount(self):
         return self.amount
 
-    def decr_amount(self):
-        self.amount -= 1
+    def decr_amount(self, _value=1):
+        if self.amount - _value >= 0:
+            self.amount -= _value
+            return True
+        return False
 
-    def incr_amount(self):
-        self.amount += 1
+    def incr_amount(self, _value=1):
+        self.amount += _value
+        return True
 
 
 app = Flask(__name__)
@@ -58,7 +62,6 @@ def get(inventory_id=None):
 def post():
 
     values = request.get_json()
-
     if not isinstance(values, list):
         values = [values]
 
@@ -102,7 +105,7 @@ def put(inventory_id=None):
         raise ValueError("could not update inventory")
 
 
-@app.route('/product/<product_id>', methods=['DELETE'])
+@app.route('/inventory/<inventory_id>', methods=['DELETE'])
 def delete(inventory_id=None):
 
     inventory = repo.del_item(inventory_id)
@@ -114,6 +117,59 @@ def delete(inventory_id=None):
         return json.dumps({'status': 'ok'})
     else:
         raise ValueError("could not delete inventory")
+
+
+@app.route('/check', methods=['POST'])
+def check():
+    values = request.get_json()
+    if not isinstance(values, list):
+        values = [values]
+
+    for inventory in repo.get_items():
+        for value in values:
+            occurs = value['product_ids'].count(inventory.get_product_id())
+            if occurs <= inventory.get_amount():
+                continue
+            else:
+                return json.dumps(False)
+
+    return json.dumps(True)
+
+
+@app.route('/incr/<product_id>', methods=['POST'])
+@app.route('/incr/<product_id>/<value>', methods=['POST'])
+def incr(product_id, value=None):
+    inventory = list(filter(lambda x: x.product_id == product_id, repo.get_items()))
+    if not inventory:
+        raise ValueError("item not found")
+
+    inventory = inventory[0]
+    if inventory.incr_amount(value if value else 1):
+
+        # trigger event
+        store.publish(Event('inventory', 'updated', **inventory.__dict__))
+
+        return json.dumps(True)
+    else:
+        return json.dumps(False)
+
+
+@app.route('/decr/<product_id>', methods=['POST'])
+@app.route('/decr/<product_id>/<value>', methods=['POST'])
+def decr(product_id, value=None):
+    inventory = list(filter(lambda x: x.product_id == product_id, repo.get_items()))
+    if not inventory:
+        raise ValueError("item not found")
+
+    inventory = inventory[0]
+    if inventory.decr_amount(value if value else 1):
+
+        # trigger event
+        store.publish(Event('inventory', 'updated', **inventory.__dict__))
+
+        return json.dumps(True)
+    else:
+        return json.dumps(False)
 
 
 @app.route('/clear', methods=['POST'])

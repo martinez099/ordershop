@@ -1,18 +1,20 @@
 import atexit
 import json
 import os
+import requests
 
 from redis import StrictRedis
 from flask import request
 from flask import Flask
 
+from lib.common import check_rsp
 from lib.event_store import EventStore, Event
 from lib.repository import Repository, Entity
 
 
 class Order(Entity):
     """
-    Order Entity
+    Order Entity class.
     """
 
     def __init__(self, _product_ids, _customer_id):
@@ -57,8 +59,15 @@ def post():
     if not isinstance(values, list):
         values = [values]
 
+    rsp = requests.post('http://inventory-service:5000/check', json=values)
+    check_rsp(rsp)
+
+    if not rsp.json():
+        raise ValueError("out of stock")
+
     order_ids = []
     for value in values:
+
         try:
             new_order = Order(value['product_ids'], value['customer_id'])
         except KeyError:
@@ -73,6 +82,10 @@ def post():
         else:
             raise ValueError("could not create order")
 
+        for product_id in value['product_ids']:
+            rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))
+            check_rsp(rsp)
+
     return json.dumps({'status': 'ok',
                        'ids': order_ids})
 
@@ -80,17 +93,32 @@ def post():
 @app.route('/order/<order_id>', methods=['PUT'])
 def put(order_id=None):
 
+    order = repo.get_item(order_id)
+    for product_id in order.product_ids:
+        rsp = requests.post('http://inventory-service:5000/incr/{}'.format(product_id))
+        check_rsp(rsp)
+
     value = request.get_json()
     try:
         order = Order(value['product_ids'], value['customer_id'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
+    rsp = requests.post('http://inventory-service:5000/check', json=value)
+    check_rsp(rsp)
+
+    if not rsp.json():
+        raise ValueError("out of stock")
+
     order.id = order_id
     if repo.set_item(order):
 
         # trigger event
         store.publish(Event('order', 'updated', **order.__dict__))
+
+        for product_id in value['product_ids']:
+            rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))
+            check_rsp(rsp)
 
         return json.dumps({'status': 'ok'})
     else:
@@ -102,6 +130,10 @@ def delete(order_id=None):
 
     order = repo.del_item(order_id)
     if order:
+
+        for product_id in order.product_ids:
+            rsp = requests.post('http://inventory-service:5000/incr/{}'.format(product_id))
+            check_rsp(rsp)
 
         # trigger event
         store.publish(Event('order', 'deleted', **order.__dict__))
