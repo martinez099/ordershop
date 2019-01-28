@@ -1,9 +1,12 @@
+import pprint
 import random
 import string
 import unittest
 
 import requests
 import redis
+
+from lib.common import check_rsp
 
 BASE_URL = 'http://localhost:5000'
 
@@ -20,7 +23,7 @@ class OrderShopTestCase(unittest.TestCase):
 
         # clear state
         rsp = requests.post('{}/clear'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
 
     @staticmethod
     def test_1_create_customers():
@@ -28,11 +31,11 @@ class OrderShopTestCase(unittest.TestCase):
         # create customers
         customers = OrderShopTestCase.create_customers(10)
         rsp = requests.post('{}/customers'.format(BASE_URL), json=customers)
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
 
         # check result
         rsp = requests.get('{}/customers'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         assert len(customers) == len(rsp.json())
 
     @staticmethod
@@ -41,11 +44,11 @@ class OrderShopTestCase(unittest.TestCase):
         # create propducts
         products = OrderShopTestCase.create_products(10)
         rsp = requests.post('{}/products'.format(BASE_URL), json=products)
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
 
         # check result
         rsp = requests.get('{}/products'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         assert len(products) == len(rsp.json())
 
     @staticmethod
@@ -53,17 +56,17 @@ class OrderShopTestCase(unittest.TestCase):
 
         # load products
         rsp = requests.get('{}/products'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         products = rsp.json()
 
         # create inventory
-        inventory = OrderShopTestCase.create_inventory([product['id'] for product in products], 10)
+        inventory = OrderShopTestCase.create_inventory([product['id'] for product in products], 100)
         rsp = requests.post('{}/inventory'.format(BASE_URL), json=inventory)
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
 
         # check result
         rsp = requests.get('{}/inventory'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         assert len(inventory) == len(rsp.json())
 
     @staticmethod
@@ -71,29 +74,29 @@ class OrderShopTestCase(unittest.TestCase):
 
         # load customers
         rsp = requests.get('{}/customers'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         customers = rsp.json()
 
         # load products
         rsp = requests.get('{}/products'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         products = rsp.json()
 
         # load inventory
         rsp = requests.get('{}/inventory'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
 
         # create orders
         orders = OrderShopTestCase.create_orders(10, customers, products)
         ordered = 0
         for order in orders:
             rsp = requests.post('{}/orders'.format(BASE_URL), json=order)
-            OrderShopTestCase.check_status_code(rsp)
+            check_rsp(rsp)
             ordered += 1
 
         # check result
         rsp = requests.get('{}/orders'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         assert ordered == len(rsp.json())
 
     @staticmethod
@@ -101,22 +104,22 @@ class OrderShopTestCase(unittest.TestCase):
 
         # load orders
         rsp = requests.get('{}/orders'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         orders = rsp.json()
 
         # load products
         rsp = requests.get('{}/products'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         products = rsp.json()
 
         # update second order
         orders[1]['product_ids'][0] = OrderShopTestCase.get_any_product_id(products, orders[1]['product_ids'][0])
         rsp = requests.put('{}/order/{}'.format(BASE_URL, orders[1]['id']), json=orders[1])
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
 
         # check result
         rsp = requests.get('{}/order/{}'.format(BASE_URL, orders[1]['id']))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         order = rsp.json()
         assert order['product_ids'][0]
         assert orders[1]['product_ids'][0] == order['product_ids'][0]
@@ -126,16 +129,16 @@ class OrderShopTestCase(unittest.TestCase):
 
         # load orders
         rsp = requests.get('{}/orders'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         orders = rsp.json()
 
         # delete third order
         rsp = requests.delete('{}/order/{}'.format(BASE_URL, orders[2]['id']))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
 
         # check result
         rsp = requests.get('{}/order/{}'.format(BASE_URL, orders[2]['id']))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         assert rsp.json() is False
 
     @staticmethod
@@ -143,16 +146,16 @@ class OrderShopTestCase(unittest.TestCase):
 
         # load customers
         rsp = requests.get('{}/customers'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         customers = rsp.json()
 
         # delete third customer
         rsp = requests.delete('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
 
         # check result
         rsp = requests.get('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         assert rsp.json() is False
 
     @staticmethod
@@ -160,12 +163,12 @@ class OrderShopTestCase(unittest.TestCase):
 
         # load customers
         rsp = requests.get('{}/customers'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         customers = rsp.json()
 
         # load orders
         rsp = requests.get('{}/orders'.format(BASE_URL))
-        OrderShopTestCase.check_status_code(rsp)
+        check_rsp(rsp)
         orders = rsp.json()
 
         # find all product ids for the first customer
@@ -178,11 +181,48 @@ class OrderShopTestCase(unittest.TestCase):
         products = []
         for product_id in product_ids:
             rsp = requests.get('{}/product/{}'.format(BASE_URL, product_id))
-            OrderShopTestCase.check_status_code(rsp)
+            check_rsp(rsp)
             products.append(rsp.json())
 
         # check result
         assert len(products) == len(product_ids)
+
+    @staticmethod
+    def test_8_billing():
+
+        # load orders
+        rsp = requests.get('{}/orders'.format(BASE_URL))
+        check_rsp(rsp)
+        orders = rsp.json()
+
+        # perform billing
+        rsp = requests.post('{}/billing'.format(BASE_URL), json={"order_id": orders[0]['id']})
+        check_rsp(rsp)
+
+        # check result
+        assert len(rsp.json()["ids"])
+
+    @staticmethod
+    def test_9_get_unbilled_orders():
+
+        # load unbilled orders
+        rsp = requests.get('{}/orders/unbilled'.format(BASE_URL))
+        check_rsp(rsp)
+        unbilled = rsp.json()
+
+        # check result
+        assert len(unbilled) == 8
+
+    @staticmethod
+    def test_Z_print_report():
+
+        # load customers
+        rsp = requests.get('{}/report'.format(BASE_URL))
+        check_rsp(rsp)
+        report = rsp.json()
+
+        # print result
+        pprint.pprint(report)
 
     @staticmethod
     def create_customers(amount):
@@ -243,9 +283,3 @@ class OrderShopTestCase(unittest.TestCase):
             product = products[idx]
             product_id = product['id'] if product['id'] != but else None
         return product_id
-
-    @staticmethod
-    def check_status_code(response):
-        if response.status_code != 200:
-            raise Exception(str(response))
-        return True

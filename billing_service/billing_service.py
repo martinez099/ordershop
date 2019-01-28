@@ -37,25 +37,7 @@ repo = Repository()
 store = EventStore(redis)
 
 
-def subscribe():
-    store.subscribe('order', 'created', order_created)
-    lib.common.log_info('subscribed to channels')
-
-
-def unsubscribe():
-    store.unsubscribe('order', 'created', order_created)
-    lib.common.log_info('unsubscribed from channels')
-
-
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_to_billing_events'):
-    store.subscribe_to_billing_events()
-    atexit.register(store.unsubscribe_from_billing_events)
-    subscribe()
-    atexit.register(unsubscribe)
-
-
 def order_created(item):
-    lib.common.log_info('ORDER CREATED')
     try:
         msg_data = json.loads(item[1][0][1]['entity'])
         customer = store.find_one('customer', msg_data['customer_id'])
@@ -72,6 +54,23 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
         })
     except Exception as e:
         lib.common.log_error(e)
+
+
+def subscribe():
+    store.subscribe('order', 'created', order_created)
+    lib.common.log_info('subscribed to channels')
+
+
+def unsubscribe():
+    store.unsubscribe('order', 'created', order_created)
+    lib.common.log_info('unsubscribed from channels')
+
+
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_to_billing_events'):
+    store.subscribe_to_billing_events()
+    atexit.register(store.unsubscribe_from_billing_events)
+    subscribe()
+    atexit.register(unsubscribe)
 
 
 @app.route('/billing', methods=['GET'])

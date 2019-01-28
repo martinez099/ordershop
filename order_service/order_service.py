@@ -7,7 +7,7 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from lib.common import check_rsp
+from lib.common import check_rsp, log_info
 from lib.event_store import EventStore, Event
 from lib.repository import Repository, Entity
 
@@ -50,8 +50,24 @@ def get(order_id=None):
         return json.dumps([item.__dict__ for item in repo.get_items()])
 
 
-@app.route('/orders', methods=['POST'])
+@app.route('/orders/unbilled', methods=['GET'])
+def get_unbilled():
+
+    rsp = requests.get('http://billing-service:5000/billing')
+    check_rsp(rsp)
+
+    billings = rsp.json()
+    orders = repo.get_items()
+
+    for billing in billings:
+        to_remove = list(filter(lambda x: x.id == billing['order_id'], orders))
+        orders.remove(to_remove[0])
+
+    return json.dumps([item.__dict__ for item in orders])
+
+
 @app.route('/order', methods=['POST'])
+@app.route('/orders', methods=['POST'])
 def post():
 
     values = request.get_json()

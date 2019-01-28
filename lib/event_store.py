@@ -49,7 +49,7 @@ class EventStore(object):
         """
         key = 'events:{}_{}'.format(_event.topic, _event.action)
         entity = json.dumps(_event.entity)
-        entry_id = '{0:.3f}'.format(_event.ts * 1000).replace('.', '-')
+        entry_id = '{0:.6f}'.format(_event.ts).replace('.', '-')
 
         return self.redis.xadd(key, {'event_id': _event.id, 'entity': entity}, id=entry_id)
 

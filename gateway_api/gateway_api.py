@@ -44,6 +44,27 @@ def proxy_command_request(_base_url):
         return check_rsp(rsp)
 
 
+@app.route('/billings', methods=['GET'])
+@app.route('/billing/<billing_id>', methods=['GET'])
+def billing_query(billing_id=None):
+
+    if billing_id:
+        billing = store.find_one('billing', billing_id)
+        return json.dumps(billing) if billing else json.dumps(False)
+    else:
+        billings = store.find_all('billing').values()
+        return json.dumps(list(billings))
+
+
+@app.route('/billing', methods=['POST'])
+@app.route('/billings', methods=['POST'])
+@app.route('/billing/<billing_id>', methods=['PUT'])
+@app.route('/billing/<billing_id>', methods=['DELETE'])
+def billing_command(billing_id=None):
+
+    return proxy_command_request('http://billing-service:5000{}')
+
+
 @app.route('/customers', methods=['GET'])
 @app.route('/customer/<customer_id>', methods=['GET'])
 def customer_query(customer_id=None):
@@ -118,6 +139,15 @@ def order_query(order_id=None):
         return json.dumps(list(orders))
 
 
+@app.route('/orders/unbilled', methods=['GET'])
+def orders_unbilled():
+
+    rsp = requests.get('http://order-service:5000/orders/unbilled')
+    check_rsp(rsp)
+
+    return rsp.text
+
+
 @app.route('/order', methods=['POST'])
 @app.route('/orders', methods=['POST'])
 @app.route('/order/<order_id>', methods=['PUT'])
@@ -134,12 +164,14 @@ def report():
     inventory = store.find_all('inventory')
     customers = store.find_all('customer')
     orders = store.find_all('order')
+    billings = store.find_all('billings')
 
     result = {
         "products": list(products.values()),
         "inventory": list(inventory.values()),
         "customers": list(customers.values()),
-        "orders": list(orders.values())
+        "orders": list(orders.values()),
+        "billings": list(billings.values())
     }
 
     return json.dumps(result)
@@ -149,7 +181,8 @@ def report():
 def clear():
 
     # clear repos
-    for url in ['http://customer-service:5000/clear',
+    for url in ['http://billing-service:5000/clear',
+                'http://customer-service:5000/clear',
                 'http://product-service:5000/clear',
                 'http://inventory-service:5000/clear',
                 'http://order-service:5000/clear']:
