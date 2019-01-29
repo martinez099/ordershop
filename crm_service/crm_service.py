@@ -5,12 +5,12 @@ from redis import StrictRedis
 
 import requests
 
-import lib.common
-from lib.event_store import EventStore
+from lib.common import log_info, log_error
+from lib.entity_cache import EntityCache
 
 
 redis = StrictRedis(decode_responses=True, host='redis')
-store = EventStore(redis)
+store = EntityCache(redis)
 
 
 def customer_created(item):
@@ -27,7 +27,7 @@ Cheers""".format(msg_data['name'])
             "msg": msg
         })
     except Exception as e:
-        lib.common.log_error(e)
+        log_error(e)
 
 
 def customer_deleted(item):
@@ -44,7 +44,7 @@ Cheers""".format(msg_data['name'])
             "msg": msg
         })
     except Exception as e:
-        lib.common.log_error(e)
+        log_error(e)
 
 
 def order_created(item):
@@ -64,21 +64,21 @@ Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for
             "msg": msg
         })
     except Exception as e:
-        lib.common.log_error(e)
+        log_error(e)
 
 
 def subscribe():
     store.subscribe('customer', 'created', customer_created)
     store.subscribe('customer', 'deleted', customer_deleted)
     store.subscribe('order', 'created', order_created)
-    lib.common.log_info('subscribed to channels')
+    log_info('subscribed to channels')
 
 
 def unsubscribe():
     store.unsubscribe('customer', 'created', customer_created)
     store.unsubscribe('customer', 'deleted', customer_deleted)
     store.unsubscribe('order', 'created', order_created)
-    lib.common.log_info('unsubscribed from channels')
+    log_info('unsubscribed from channels')
 
 
 subscribe()

@@ -6,7 +6,8 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from lib.event_store import EventStore, Event
+from lib.entity_cache import EntityCache
+from lib.event_store import Event
 from lib.repository import Repository, Entity
 
 
@@ -40,7 +41,7 @@ class Inventory(Entity):
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
 repo = Repository()
-store = EventStore(redis)
+store = EntityCache(redis)
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_to_product_events'):
     store.subscribe_to_inventory_events()

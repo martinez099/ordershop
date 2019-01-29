@@ -10,7 +10,8 @@ from flask import Flask
 import requests
 
 import lib.common
-from lib.event_store import EventStore, Event
+from lib.entity_cache import EntityCache
+from lib.event_store import Event
 from lib.repository import Repository, Entity
 
 
@@ -34,7 +35,7 @@ class Billing(Entity):
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
 repo = Repository()
-store = EventStore(redis)
+store = EntityCache(redis)
 
 
 def order_created(item):

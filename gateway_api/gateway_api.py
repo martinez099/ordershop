@@ -7,11 +7,11 @@ from flask import request
 from flask import Flask
 
 from lib.common import check_rsp
-from lib.event_store import EventStore
+from lib.entity_cache import EntityCache
 
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
-store = EventStore(redis)
+store = EntityCache(redis)
 
 
 def proxy_command_request(_base_url):

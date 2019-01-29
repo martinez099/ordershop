@@ -4,12 +4,12 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from lib.event_store import EventStore
+from lib.entity_cache import EntityCache
 
 
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
-store = EventStore(redis)
+store = EntityCache(redis)
 
 
 @app.route('/email', methods=['POST'])
@@ -19,5 +19,5 @@ def post():
     if not values['to'] or not values['msg']:
         raise ValueError("missing mandatory parameter 'to' and/or 'msg'")
 
-    #app.logger.info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
+    app.logger.info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
     return json.dumps({"result": True})
