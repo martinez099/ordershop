@@ -172,10 +172,18 @@ class EventStore(object):
 
 class Subscriber(threading.Thread):
     """
-    Subscriber thread.
+    Subscriber Thread class.
     """
 
     def __init__(self, _topic, _action, _handler, _redis):
+        """
+        Initialize a subscriber thread.
+
+        :param _topic: The topic to subscirbe to.
+        :param _action: The action to scubscribe to.
+        :param _handler: A handler function.
+        :param _redis: A Redis instance.
+        """
         super(Subscriber, self).__init__()
         self._running = False
         self.key = 'events:{}_{}'.format(_topic, _action)

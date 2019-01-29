@@ -164,7 +164,7 @@ def report():
     inventory = store.find_all('inventory')
     customers = store.find_all('customer')
     orders = store.find_all('order')
-    billings = store.find_all('billings')
+    billings = store.find_all('billing')
 
     result = {
         "products": list(products.values()),
@@ -193,4 +193,4 @@ def clear():
     # clear event store
     store.reset()
 
-    return json.dumps({'status': 'ok'})
+    return json.dumps(True)
