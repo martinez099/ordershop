@@ -54,7 +54,7 @@ def get(order_id=None):
 @app.route('/orders/unbilled', methods=['GET'])
 def get_unbilled():
 
-    rsp = requests.get('http://billing-service:5000/billing')
+    rsp = requests.get('http://billing-service:5000/billings')
     check_rsp(rsp)
 
     billings = rsp.json()
@@ -72,11 +72,10 @@ def get_unbilled():
 def post():
 
     values = request.get_json()
-
     if not isinstance(values, list):
         values = [values]
 
-    rsp = requests.post('http://inventory-service:5000/check', json=values)
+    rsp = requests.post('http://inventory-service:5000/check_and_decr', json=values)
     check_rsp(rsp)
 
     if not rsp.json():
@@ -99,10 +98,6 @@ def post():
         else:
             raise ValueError("could not create order")
 
-        for product_id in value['product_ids']:
-            rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))
-            check_rsp(rsp)
-
     return json.dumps({'status': 'ok',
                        'ids': order_ids})
 
@@ -121,7 +116,7 @@ def put(order_id=None):
     except KeyError:
         raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
-    rsp = requests.post('http://inventory-service:5000/check', json=value)
+    rsp = requests.post('http://inventory-service:5000/check_and_decr', json=value)
     check_rsp(rsp)
 
     if not rsp.json():

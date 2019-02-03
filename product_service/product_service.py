@@ -49,8 +49,8 @@ def get(product_id=None):
         return json.dumps([item.__dict__ for item in repo.get_items()])
 
 
-@app.route('/products', methods=['POST'])
 @app.route('/product', methods=['POST'])
+@app.route('/products', methods=['POST'])
 def post():
 
     values = request.get_json()

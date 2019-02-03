@@ -60,7 +60,7 @@ class OrderShopTestCase(unittest.TestCase):
         products = rsp.json()
 
         # create inventory
-        inventory = OrderShopTestCase.create_inventory([product['id'] for product in products], 100)
+        inventory = OrderShopTestCase.create_inventory([product['id'] for product in products], 10)
         rsp = requests.post('{}/inventory'.format(BASE_URL), json=inventory)
         check_rsp(rsp)
 

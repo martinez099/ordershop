@@ -9,7 +9,7 @@ from flask import Flask
 
 import requests
 
-import lib.common
+from lib.common import check_rsp, log_error, log_info
 from lib.entity_cache import EntityCache
 from lib.event_store import Event
 from lib.repository import Repository, Entity
@@ -54,17 +54,39 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
             "msg": msg
         })
     except Exception as e:
-        lib.common.log_error(e)
+        log_error(e)
+
+
+def billing_created(item):
+    try:
+        msg_data = json.loads(item[1][0][1]['entity'])
+        order = store.find_one('order', msg_data['order_id'])
+        customer = store.find_one('customer', order['customer_id'])
+        products = [store.find_one('product', product_id) for product_id in order['product_ids']]
+        msg = """Dear {}!
+
+We've just received € {} from you, thank you for your transfer.
+
+Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
+
+        requests.post('http://msg-service:5000/email', json={
+            "to": customer['email'],
+            "msg": msg
+        })
+    except Exception as e:
+        log_error(e)
 
 
 def subscribe():
     store.subscribe('order', 'created', order_created)
-    lib.common.log_info('subscribed to channels')
+    store.subscribe('billing', 'created', billing_created)
+    log_info('subscribed to channels')
 
 
 def unsubscribe():
     store.unsubscribe('order', 'created', order_created)
-    lib.common.log_info('unsubscribed from channels')
+    store.unsubscribe('billing', 'created', billing_created)
+    log_info('unsubscribed from channels')
 
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_to_billing_events'):
@@ -74,7 +96,7 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_t
     atexit.register(unsubscribe)
 
 
-@app.route('/billing', methods=['GET'])
+@app.route('/billings', methods=['GET'])
 @app.route('/billing/<billing_id>', methods=['GET'])
 def get(billing_id=None):
 
@@ -86,6 +108,7 @@ def get(billing_id=None):
 
 
 @app.route('/billing', methods=['POST'])
+@app.route('/billings', methods=['POST'])
 def post():
 
     values = request.get_json()

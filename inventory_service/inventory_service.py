@@ -122,17 +122,72 @@ def delete(inventory_id=None):
 
 @app.route('/check', methods=['POST'])
 def check():
+
     values = request.get_json()
     if not isinstance(values, list):
         values = [values]
 
-    for inventory in repo.get_items():
-        for value in values:
-            occurs = value['product_ids'].count(inventory.get_product_id())
-            if occurs <= inventory.get_amount():
+    occurs = {}
+    for value in values:
+
+        try:
+            product_ids = value['product_ids']
+        except KeyError:
+            raise ValueError("missing mandatory parameter 'product_ids'")
+
+        for inventory in repo.get_items():
+
+            if not inventory.get_product_id() in occurs:
+                occurs[inventory.get_product_id()] = 0
+
+            occurs[inventory.get_product_id()] += product_ids.count(inventory.get_product_id())
+            if occurs[inventory.get_product_id()] <= inventory.get_amount():
                 continue
             else:
                 return json.dumps(False)
+
+    return json.dumps(True)
+
+
+@app.route('/check_and_decr', methods=['POST'])
+def check_and_decr():
+
+    values = request.get_json()
+    if not isinstance(values, list):
+        values = [values]
+
+    occurs = {}
+    for value in values:
+
+        try:
+            product_ids = value['product_ids']
+        except KeyError:
+            raise ValueError("missing mandatory parameter 'product_ids'")
+
+        for inventory in repo.get_items():
+
+            if not inventory.get_product_id() in occurs:
+                occurs[inventory.get_product_id()] = 0
+
+            occurs[inventory.get_product_id()] += product_ids.count(inventory.get_product_id())
+            if occurs[inventory.get_product_id()] <= inventory.get_amount():
+                continue
+            else:
+                return json.dumps(False)
+
+    for k, v in occurs.items():
+        inventory = list(filter(lambda x: x.product_id == k, repo.get_items()))
+        if not inventory:
+            raise ValueError("item not found")
+
+        inventory = inventory[0]
+        if inventory.decr_amount(v):
+
+            # trigger event
+            store.publish(Event('inventory', 'updated', **inventory.__dict__))
+
+        else:
+            return json.dumps(False)
 
     return json.dumps(True)
 
