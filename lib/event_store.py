@@ -3,8 +3,6 @@ import time
 import uuid
 import threading
 
-import lib.common
-
 
 class Event(object):
     """
@@ -99,19 +97,7 @@ class EventStore(object):
         :param _id: The event id.
         :return: The event dict.
         """
-        if self.redis.exists('{}_entity:{}'.format(_topic, _id)):
-
-            # read from cache
-            result = self.redis.hgetall('{}_entity:{}'.format(_topic, _id))
-            for k, v in result.items():
-                if lib.common.is_key(v):
-                    result[k] = self.redis.lrange(v, 0, -1)
-
-        else:
-
-            result = self.find_all(_topic).get(_id)
-
-        return result
+        return self.find_all(_topic).get(_id)
 
     def find_all(self, _topic):
         """
@@ -120,18 +106,10 @@ class EventStore(object):
         :param _topic: The event topic.
         :return: A dict mapping id -> dict of all aggregated events.
         """
-        result = {}
 
-        if self.redis.exists('{}_IDs'.format(_topic)):
+        result = self.read_from_cache(_topic)
 
-            # read from cache
-            for eid in self.redis.lrange('{}_IDs'.format(_topic), 0, -1):
-                result[eid] = self.redis.hgetall('{}_entity:{}'.format(_topic, eid))
-                for k, v in result[eid].items():
-                    if lib.common.is_key(v):
-                        result[eid][k] = self.redis.lrange(v, 0, -1)
-
-        else:
+        if not result:
 
             # get created entities
             created_events = self.redis.xrange('events:{}_created'.format(_topic))
@@ -153,21 +131,18 @@ class EventStore(object):
                 updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
                 result = set_updated(result, updated_entities)
 
-            # write into cache
-            for eid, value in result.items():
-                self.redis.rpush('{}_IDs'.format(_topic), eid)
-                for k, v in value.items():
-                    if isinstance(v, list):
-                        lid = '{}_{}:{}'.format(_topic, k, eid)
-                        self.redis.hset('{}_entity:{}'.format(_topic, eid), k, lid)
-                        self.redis.rpush(lid, *v)
-                    else:
-                        self.redis.hset('{}_entity:{}'.format(_topic, eid), k, v)
+            self.write_into_cache(_topic, result)
 
         return result
 
     def reset(self):
         self.redis.flushdb()
+
+    def read_from_cache(self, _topic):
+        raise NotImplementedError()
+
+    def write_into_cache(self, _topic, _values):
+        raise NotImplementedError()
 
 
 class Subscriber(threading.Thread):

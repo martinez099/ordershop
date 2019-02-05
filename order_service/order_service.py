@@ -54,10 +54,7 @@ def get(order_id=None):
 @app.route('/orders/unbilled', methods=['GET'])
 def get_unbilled():
 
-    rsp = requests.get('http://billing-service:5000/billings')
-    check_rsp(rsp)
-
-    billings = rsp.json()
+    billings = store.find_all('billing').values()
     orders = repo.get_items()
 
     for billing in billings:

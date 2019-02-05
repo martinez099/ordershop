@@ -9,7 +9,7 @@ from flask import Flask
 
 import requests
 
-from lib.common import check_rsp, log_error, log_info
+from lib.common import log_error, log_info
 from lib.entity_cache import EntityCache
 from lib.event_store import Event
 from lib.repository import Repository, Entity

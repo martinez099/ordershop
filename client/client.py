@@ -52,7 +52,7 @@ class OrderShopTestCase(unittest.TestCase):
         assert len(products) == len(rsp.json())
 
     @staticmethod
-    def test_2a_create_inventory():
+    def test_3_create_inventory():
 
         # load products
         rsp = requests.get('{}/products'.format(BASE_URL))
@@ -60,7 +60,7 @@ class OrderShopTestCase(unittest.TestCase):
         products = rsp.json()
 
         # create inventory
-        inventory = OrderShopTestCase.create_inventory([product['id'] for product in products], 10)
+        inventory = OrderShopTestCase.create_inventory([product['id'] for product in products], 100)
         rsp = requests.post('{}/inventory'.format(BASE_URL), json=inventory)
         check_rsp(rsp)
 
@@ -70,7 +70,7 @@ class OrderShopTestCase(unittest.TestCase):
         assert len(inventory) == len(rsp.json())
 
     @staticmethod
-    def test_3_create_orders():
+    def test_4_create_orders():
 
         # load customers
         rsp = requests.get('{}/customers'.format(BASE_URL))
@@ -81,10 +81,6 @@ class OrderShopTestCase(unittest.TestCase):
         rsp = requests.get('{}/products'.format(BASE_URL))
         check_rsp(rsp)
         products = rsp.json()
-
-        # load inventory
-        rsp = requests.get('{}/inventory'.format(BASE_URL))
-        check_rsp(rsp)
 
         # create orders
         orders = OrderShopTestCase.create_orders(10, customers, products)
@@ -100,7 +96,7 @@ class OrderShopTestCase(unittest.TestCase):
         assert ordered == len(rsp.json())
 
     @staticmethod
-    def test_4_update_second_order():
+    def test_5_update_second_order():
 
         # load orders
         rsp = requests.get('{}/orders'.format(BASE_URL))
@@ -125,7 +121,7 @@ class OrderShopTestCase(unittest.TestCase):
         assert orders[1]['product_ids'][0] == order['product_ids'][0]
 
     @staticmethod
-    def test_5_delete_third_order():
+    def test_6_delete_third_order():
 
         # load orders
         rsp = requests.get('{}/orders'.format(BASE_URL))
@@ -142,7 +138,7 @@ class OrderShopTestCase(unittest.TestCase):
         assert rsp.json() is False
 
     @staticmethod
-    def test_6_delete_third_customer():
+    def test_7_delete_third_customer():
 
         # load customers
         rsp = requests.get('{}/customers'.format(BASE_URL))
@@ -159,36 +155,7 @@ class OrderShopTestCase(unittest.TestCase):
         assert rsp.json() is False
 
     @staticmethod
-    def test_7_get_all_products_for_a_customer():
-
-        # load customers
-        rsp = requests.get('{}/customers'.format(BASE_URL))
-        check_rsp(rsp)
-        customers = rsp.json()
-
-        # load orders
-        rsp = requests.get('{}/orders'.format(BASE_URL))
-        check_rsp(rsp)
-        orders = rsp.json()
-
-        # find all product ids for the first customer
-        product_ids = []
-        for order in orders:
-            if customers[0]['id'] == order['customer_id']:
-                product_ids.extend(order['product_ids'])
-
-        # load products for these product ids
-        products = []
-        for product_id in product_ids:
-            rsp = requests.get('{}/product/{}'.format(BASE_URL, product_id))
-            check_rsp(rsp)
-            products.append(rsp.json())
-
-        # check result
-        assert len(products) == len(product_ids)
-
-    @staticmethod
-    def test_8_billing():
+    def test_8_perform_billing():
 
         # load orders
         rsp = requests.get('{}/orders'.format(BASE_URL))

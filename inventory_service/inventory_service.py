@@ -195,6 +195,7 @@ def check_and_decr():
 @app.route('/incr/<product_id>', methods=['POST'])
 @app.route('/incr/<product_id>/<value>', methods=['POST'])
 def incr(product_id, value=None):
+
     inventory = list(filter(lambda x: x.product_id == product_id, repo.get_items()))
     if not inventory:
         raise ValueError("item not found")
@@ -213,6 +214,7 @@ def incr(product_id, value=None):
 @app.route('/decr/<product_id>', methods=['POST'])
 @app.route('/decr/<product_id>/<value>', methods=['POST'])
 def decr(product_id, value=None):
+
     inventory = list(filter(lambda x: x.product_id == product_id, repo.get_items()))
     if not inventory:
         raise ValueError("item not found")

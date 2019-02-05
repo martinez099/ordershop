@@ -1,6 +1,7 @@
 import functools
 import json
 
+from lib.domain_model import DomainModel
 from lib.event_store import EventStore
 
 
@@ -8,6 +9,7 @@ class EntityCache(EventStore):
     """
     Entity Cache class.
     """
+    domain_model = None
 
     def __init__(self, _redis):
         """
@@ -16,6 +18,15 @@ class EntityCache(EventStore):
         :param _redis: A Redis instance.
         """
         super(EntityCache, self).__init__(_redis)
+        self.domain_model = DomainModel(_redis)
+
+    def read_from_cache(self, _topic):
+        if self.domain_model.exists(_topic):
+            return self.domain_model.retrieve(_topic)
+
+    def write_into_cache(self, _topic, _result):
+        for k, v in _result.items():
+            self.domain_model.create(_topic, v)
 
     def subscribe_to_product_events(self):
         self.subscribe('product', 'created', functools.partial(self.entity_created, 'product'))
@@ -68,41 +79,16 @@ class EntityCache(EventStore):
         self.unsubscribe('billing', 'updated', functools.partial(self.entity_updated, 'billing'))
 
     def entity_created(self, _topic, _item):
-        if self.redis.exists('{}_IDs'.format(_topic)):
+        if self.domain_model.exists(_topic):
             entity = json.loads(_item[1][0][1]['entity'])
-            self.redis.rpush('{}_IDs'.format(_topic), entity['id'])
-            for k, v in entity.items():
-                if isinstance(v, list):
-                    lid = '{}_{}:{}'.format(_topic, k, entity['id'])
-                    self.redis.hset('{}_entity:{}'.format(_topic, entity['id']), k, lid)
-                    self.redis.rpush(lid, *v)
-                if isinstance(v, set):
-                    sid = '{}_{}:{}.'.format(_topic, k, entity['id'])
-                    self.redis.hset('{}_entity:{}'.format(_topic, entity['id']), k, sid)
-                    self.redis.sadd(sid, *v)
-                else:
-                    self.redis.hset('{}_entity:{}'.format(_topic, entity['id']), k, v)
+            self.domain_model.create(_topic, entity)
 
     def entity_deleted(self, _topic, _item):
-        if self.redis.exists('{}_IDs'.format(_topic)):
+        if self.domain_model.exists(_topic):
             entity = json.loads(_item[1][0][1]['entity'])
-            self.redis.lrem('{}_IDs'.format(_topic), 1, entity['id'])
-            self.redis.delete('{}_entity:{}'.format(_topic, entity['id']))
-            for k, v in entity.items():
-                if isinstance(v, (list, set)):
-                    self.redis.delete('{}_{}:{}'.format(_topic, k, entity['id']))
+            self.domain_model.delete(_topic, entity)
 
     def entity_updated(self, _topic, _item):
-        if self.redis.exists('{}_IDs'.format(_topic)):
+        if self.domain_model.exists(_topic):
             entity = json.loads(_item[1][0][1]['entity'])
-            for k, v in entity.items():
-                if isinstance(v, list):
-                    lid = '{}_{}:{}'.format(_topic, k, entity['id'])
-                    self.redis.delete(lid)
-                    self.redis.rpush(lid, *v)
-                if isinstance(v, set):
-                    sid = '{}_{}:{}'.format(_topic, k, entity['id'])
-                    self.redis.delete(sid)
-                    self.redis.sadd(sid, *v)
-                else:
-                    self.redis.hset('{}_entity:{}'.format(_topic, entity['id']), k, v)
+            self.domain_model.update(_topic, entity)
