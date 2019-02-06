@@ -4,13 +4,11 @@ import string
 import unittest
 
 import requests
-import redis
 
 from lib.common import check_rsp
 
-BASE_URL = 'http://localhost:5000'
 
-r = redis.StrictRedis(decode_responses=True)
+BASE_URL = 'http://localhost:5000'
 
 
 class OrderShopTestCase(unittest.TestCase):
@@ -167,7 +165,7 @@ class OrderShopTestCase(unittest.TestCase):
         check_rsp(rsp)
 
         # check result
-        assert len(rsp.json()["ids"])
+        assert len(rsp.json())
 
     @staticmethod
     def test_9_get_unbilled_orders():

@@ -4,12 +4,9 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from lib.entity_cache import EntityCache
-
 
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
-store = EntityCache(redis)
 
 
 @app.route('/email', methods=['POST'])

@@ -2,6 +2,7 @@ import atexit
 import time
 import json
 import os
+import uuid
 
 from redis import StrictRedis
 from flask import request
@@ -10,32 +11,23 @@ from flask import Flask
 import requests
 
 from lib.common import log_error, log_info
-from lib.entity_cache import EntityCache
-from lib.event_store import Event
-from lib.repository import Repository, Entity
+from lib.event_store import Event, EventStore
 
 
-class Billing(Entity):
+class Billing(object):
     """
     Billing Entity class.
     """
 
     def __init__(self, _order_id):
-        super(Billing, self).__init__()
+        self.id = str(uuid.uuid4())
         self.order_id = _order_id
         self.done = time.time()
-
-    def get_order_id(self):
-        return self.order_id
-
-    def get_done(self):
-        return self.done
 
 
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
-repo = Repository()
-store = EntityCache(redis)
+store = EventStore(redis)
 
 
 def order_created(item):
@@ -89,9 +81,9 @@ def unsubscribe():
     log_info('unsubscribed from channels')
 
 
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_to_billing_events'):
-    store.subscribe_to_billing_events()
-    atexit.register(store.unsubscribe_from_billing_events)
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+    store.subscribe_to_entity_events('billing')
+    atexit.register(store.unsubscribe_from_entity_events, 'billing')
     subscribe()
     atexit.register(unsubscribe)
 
@@ -101,10 +93,13 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" and hasattr(store, 'subscribe_t
 def get(billing_id=None):
 
     if billing_id:
-        item = repo.get_item(billing_id)
-        return json.dumps(item.__dict__) if item else json.dumps(False)
+        billing = store.find_one('billing', billing_id)
+        if not billing:
+            raise ValueError("could not find billing")
+
+        return json.dumps(billing) if billing else json.dumps(False)
     else:
-        return json.dumps([item.__dict__ for item in repo.get_items()])
+        return json.dumps([item for item in store.find_all('billing').values()])
 
 
 @app.route('/billing', methods=['POST'])
@@ -122,21 +117,16 @@ def post():
         except KeyError:
             raise ValueError("missing mandatory parameter 'order_id'")
 
-        if repo.set_item(new_billing):
+        # trigger event
+        store.publish(Event('billing', 'created', **new_billing.__dict__))
 
-            # trigger event
-            store.publish(Event('billing', 'created', **new_billing.__dict__))
+        billing_ids.append(new_billing.id)
 
-            billing_ids.append(str(new_billing.id))
-        else:
-            raise ValueError("could not create billing")
-
-    return json.dumps({'status': 'ok',
-                       'ids': billing_ids})
+    return json.dumps(billing_ids)
 
 
 @app.route('/billing/<billing_id>', methods=['PUT'])
-def put(billing_id=None):
+def put(billing_id):
 
     value = request.get_json()
     try:
@@ -145,34 +135,22 @@ def put(billing_id=None):
         raise ValueError("missing mandatory parameter 'order_id'")
 
     billing.id = billing_id
-    if repo.set_item(billing):
 
-        # trigger event
-        store.publish(Event('billing', 'updated', **billing.__dict__))
+    # trigger event
+    store.publish(Event('billing', 'updated', **billing.__dict__))
 
-        return json.dumps({'status': 'ok'})
-    else:
-        raise ValueError("could not update billing")
+    return json.dumps(True)
 
 
 @app.route('/billing/<billing_id>', methods=['DELETE'])
-def delete(billing_id=None):
+def delete(billing_id):
 
-    billing = repo.del_item(billing_id)
+    billing = store.find_one('billing', billing_id)
     if billing:
 
         # trigger event
-        store.publish(Event('billing', 'deleted', **billing.__dict__))
+        store.publish(Event('billing', 'deleted', **billing))
 
-        return json.dumps({'status': 'ok'})
+        return json.dumps(True)
     else:
-        raise ValueError("could not delete billing")
-
-
-@app.route('/clear', methods=['POST'])
-def clear():
-
-    # clear repo
-    repo.reset()
-
-    return json.dumps({'status': 'ok'})
+        raise ValueError("could not find billing")

@@ -7,11 +7,11 @@ from flask import request
 from flask import Flask
 
 from lib.common import check_rsp
-from lib.entity_cache import EntityCache
+from lib.event_store import EventStore
 
 app = Flask(__name__)
 redis = StrictRedis(decode_responses=True, host='redis')
-store = EntityCache(redis)
+store = EventStore(redis)
 
 
 def proxy_command_request(_base_url):
@@ -129,23 +129,19 @@ def inventory_command(inventory_id=None):
 
 @app.route('/orders', methods=['GET'])
 @app.route('/order/<order_id>', methods=['GET'])
+@app.route('/orders/unbilled', methods=['GET'])
 def order_query(order_id=None):
 
     if order_id:
         order = store.find_one('order', order_id)
         return json.dumps(order) if order else json.dumps(False)
+    elif request.path.endswith('/orders/unbilled'):
+        rsp = requests.get('http://order-service:5000/orders/unbilled')
+        check_rsp(rsp)
+        return rsp.text
     else:
         orders = store.find_all('order').values()
         return json.dumps(list(orders))
-
-
-@app.route('/orders/unbilled', methods=['GET'])
-def orders_unbilled():
-
-    rsp = requests.get('http://order-service:5000/orders/unbilled')
-    check_rsp(rsp)
-
-    return rsp.text
 
 
 @app.route('/order', methods=['POST'])
@@ -180,17 +176,5 @@ def report():
 @app.route('/clear', methods=['POST'])
 def clear():
 
-    # clear repos
-    for url in ['http://billing-service:5000/clear',
-                'http://customer-service:5000/clear',
-                'http://product-service:5000/clear',
-                'http://inventory-service:5000/clear',
-                'http://order-service:5000/clear']:
-
-        rsp = requests.post(url)
-        check_rsp(rsp)
-
-    # clear event store
     store.reset()
-
     return json.dumps(True)

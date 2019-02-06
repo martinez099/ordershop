@@ -1,7 +1,10 @@
+import functools
 import json
+import threading
 import time
 import uuid
-import threading
+
+from lib.domain_model import DomainModel
 
 
 class Event(object):
@@ -37,6 +40,7 @@ class EventStore(object):
         """
         self.redis = _redis
         self.subscribers = {}
+        self.domain_model = DomainModel(_redis)
 
     def publish(self, _event):
         """
@@ -107,8 +111,7 @@ class EventStore(object):
         :return: A dict mapping id -> dict of all aggregated events.
         """
 
-        result = self.read_from_cache(_topic)
-
+        result = self.read_from_entity_cache(_topic)
         if not result:
 
             # get created entities
@@ -122,27 +125,80 @@ class EventStore(object):
             if deleted_events:
                 deleted_entities = map(lambda x: json.loads(x[1]['entity']), deleted_events)
                 deleted_entities = map(lambda x: x['id'], deleted_entities)
-                result = remove_deleted(result, deleted_entities)
+                result = EventStore.remove_deleted(result, deleted_entities)
 
             # set updated entities
             updated_events = self.redis.xrange('events:{}_updated'.format(_topic))
             if updated_events:
                 updated_entities = map(lambda x: json.loads(x[1]['entity']), updated_events)
                 updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
-                result = set_updated(result, updated_entities)
+                result = EventStore.set_updated(result, updated_entities)
 
-            self.write_into_cache(_topic, result)
+            self.write_into_entity_cache(_topic, result)
 
         return result
+
+    def read_from_entity_cache(self, _topic):
+        if self.domain_model.exists(_topic):
+            return self.domain_model.retrieve(_topic)
+
+    def write_into_entity_cache(self, _topic, _result):
+        for k, v in _result.items():
+            self.domain_model.create(_topic, v)
+
+    def subscribe_to_entity_events(self, _topic):
+        self.subscribe(_topic, 'created', functools.partial(self.entity_created, _topic))
+        self.subscribe(_topic, 'deleted', functools.partial(self.entity_deleted, _topic))
+        self.subscribe(_topic, 'updated', functools.partial(self.entity_updated, _topic))
+
+    def unsubscribe_from_entity_events(self, _topic):
+        self.unsubscribe(_topic, 'created', functools.partial(self.entity_created, _topic))
+        self.unsubscribe(_topic, 'deleted', functools.partial(self.entity_deleted, _topic))
+        self.unsubscribe(_topic, 'updated', functools.partial(self.entity_updated, _topic))
+
+    def entity_created(self, _topic, _item):
+        if self.domain_model.exists(_topic):
+            entity = json.loads(_item[1][0][1]['entity'])
+            self.domain_model.create(_topic, entity)
+
+    def entity_deleted(self, _topic, _item):
+        if self.domain_model.exists(_topic):
+            entity = json.loads(_item[1][0][1]['entity'])
+            self.domain_model.delete(_topic, entity)
+
+    def entity_updated(self, _topic, _item):
+        if self.domain_model.exists(_topic):
+            entity = json.loads(_item[1][0][1]['entity'])
+            self.domain_model.update(_topic, entity)
 
     def reset(self):
         self.redis.flushdb()
 
-    def read_from_cache(self, _topic):
-        raise NotImplementedError()
+    @staticmethod
+    def remove_deleted(created, deleted):
+        """
+        Remove deleted events.
 
-    def write_into_cache(self, _topic, _values):
-        raise NotImplementedError()
+        :param created: A dict mapping id -> dict of created events.
+        :param deleted: A list of deleted ids.
+        :return: A dict without deleted events.
+        """
+        for d in deleted:
+            del created[d]
+        return created
+
+    @staticmethod
+    def set_updated(created, updated):
+        """
+        Adapt updated events.
+
+        :param created: A dict mapping id -> dict of created events.
+        :param updated: A dict mapping id -> dict of updated events.
+        :return: A dict with updated events.
+        """
+        for k, v in updated.items():
+            created[k] = v
+        return created
 
 
 class Subscriber(threading.Thread):
@@ -177,7 +233,6 @@ class Subscriber(threading.Thread):
         self._running = True
         while self.subscribed:
             items = self.redis.xread({self.key: last_id}, block=1000) or []
-
             for item in items:
                 for handler in self.handlers:
                     handler(item)
@@ -192,29 +247,3 @@ class Subscriber(threading.Thread):
 
     def rem_handler(self, _handler):
         self.handlers.remove(_handler)
-
-
-def remove_deleted(created, deleted):
-    """
-    Remove deleted events.
-
-    :param created: A dict mapping id -> dict of created events.
-    :param deleted: A list of deleted ids.
-    :return: A dict without deleted events.
-    """
-    for d in deleted:
-        del created[d]
-    return created
-
-
-def set_updated(created, updated):
-    """
-    Adapt updated events.
-
-    :param created: A dict mapping id -> dict of created events.
-    :param updated: A dict mapping id -> dict of updated events.
-    :return: A dict with updated events.
-    """
-    for k, v in updated.items():
-        created[k] = v
-    return created

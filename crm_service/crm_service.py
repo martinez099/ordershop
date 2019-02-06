@@ -6,11 +6,11 @@ from redis import StrictRedis
 import requests
 
 from lib.common import log_info, log_error
-from lib.entity_cache import EntityCache
+from lib.event_store import EventStore
 
 
 redis = StrictRedis(decode_responses=True, host='redis')
-store = EntityCache(redis)
+store = EventStore(redis)
 
 
 def customer_created(item):
