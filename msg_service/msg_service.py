@@ -17,4 +17,4 @@ def post():
         raise ValueError("missing mandatory parameter 'to' and/or 'msg'")
 
     app.logger.info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
-    return json.dumps({"result": True})
+    return json.dumps(True)

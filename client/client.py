@@ -3,6 +3,7 @@ import random
 import string
 import unittest
 
+import redis
 import requests
 
 from lib.common import check_rsp
@@ -20,8 +21,8 @@ class OrderShopTestCase(unittest.TestCase):
     def setUpClass(cls):
 
         # clear state
-        rsp = requests.post('{}/clear'.format(BASE_URL))
-        check_rsp(rsp)
+        r = redis.StrictRedis(decode_responses=True)
+        r.flushdb()
 
     @staticmethod
     def test_1_create_customers():

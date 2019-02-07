@@ -142,8 +142,8 @@ class EventStore(object):
         if self.domain_model.exists(_topic):
             return self.domain_model.retrieve(_topic)
 
-    def write_into_entity_cache(self, _topic, _result):
-        for k, v in _result.items():
+    def write_into_entity_cache(self, _topic, _values):
+        for k, v in _values.items():
             self.domain_model.create(_topic, v)
 
     def subscribe_to_entity_events(self, _topic):
@@ -170,9 +170,6 @@ class EventStore(object):
         if self.domain_model.exists(_topic):
             entity = json.loads(_item[1][0][1]['entity'])
             self.domain_model.update(_topic, entity)
-
-    def reset(self):
-        self.redis.flushdb()
 
     @staticmethod
     def remove_deleted(created, deleted):
