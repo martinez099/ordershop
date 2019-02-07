@@ -67,19 +67,19 @@ Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for
         log_error(e)
 
 
-def subscribe():
+def subscribe_to_domain_events():
     store.subscribe('customer', 'created', customer_created)
     store.subscribe('customer', 'deleted', customer_deleted)
     store.subscribe('order', 'created', order_created)
-    log_info('subscribed to channels')
+    log_info('subscribed to domain events')
 
 
-def unsubscribe():
+def unsubscribe_from_domain_events():
     store.unsubscribe('customer', 'created', customer_created)
     store.unsubscribe('customer', 'deleted', customer_deleted)
     store.unsubscribe('order', 'created', order_created)
-    log_info('unsubscribed from channels')
+    log_info('unsubscribed from domain events')
 
 
-subscribe()
-atexit.register(unsubscribe)
+subscribe_to_domain_events()
+atexit.register(unsubscribe_from_domain_events)

@@ -6,7 +6,7 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from lib.common import check_rsp
+from lib.common import check_rsp_code
 from lib.event_store import EventStore
 
 app = Flask(__name__)
@@ -25,7 +25,7 @@ def proxy_command_request(_base_url):
             raise ValueError("cannot parse json body {}".format(request.data))
 
         rsp = requests.post(_base_url.format(request.full_path), json=values)
-        return check_rsp(rsp)
+        return check_rsp_code(rsp)
 
     # handle PUT
     if request.method == 'PUT':
@@ -36,12 +36,12 @@ def proxy_command_request(_base_url):
             raise ValueError("cannot parse json body {}".format(request.data))
 
         rsp = requests.put(_base_url.format(request.full_path), json=values)
-        return check_rsp(rsp)
+        return check_rsp_code(rsp)
 
     # handle DELETE
     if request.method == 'DELETE':
         rsp = requests.delete(_base_url.format(request.full_path))
-        return check_rsp(rsp)
+        return check_rsp_code(rsp)
 
 
 @app.route('/billings', methods=['GET'])
@@ -137,7 +137,7 @@ def order_query(order_id=None):
         return json.dumps(order) if order else json.dumps(False)
     elif request.path.endswith('/orders/unbilled'):
         rsp = requests.get('http://order-service:5000/orders/unbilled')
-        check_rsp(rsp)
+        check_rsp_code(rsp)
         return rsp.text
     else:
         orders = store.find_all('order').values()
@@ -171,10 +171,3 @@ def report():
     }
 
     return json.dumps(result)
-
-
-@app.route('/clear', methods=['POST'])
-def clear():
-
-    store.reset()
-    return json.dumps(True)

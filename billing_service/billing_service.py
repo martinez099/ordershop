@@ -69,23 +69,23 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
         log_error(e)
 
 
-def subscribe():
+def subscribe_to_domain_events():
     store.subscribe('order', 'created', order_created)
     store.subscribe('billing', 'created', billing_created)
-    log_info('subscribed to channels')
+    log_info('subscribed to domain events')
 
 
-def unsubscribe():
+def unsubscribe_from_domain_events():
     store.unsubscribe('order', 'created', order_created)
     store.unsubscribe('billing', 'created', billing_created)
-    log_info('unsubscribed from channels')
+    log_info('unsubscribed from domain events')
 
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
     store.subscribe_to_entity_events('billing')
     atexit.register(store.unsubscribe_from_entity_events, 'billing')
-    subscribe()
-    atexit.register(unsubscribe)
+    subscribe_to_domain_events()
+    atexit.register(unsubscribe_from_domain_events)
 
 
 @app.route('/billings', methods=['GET'])

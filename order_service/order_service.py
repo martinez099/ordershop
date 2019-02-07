@@ -8,7 +8,7 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from lib.common import check_rsp
+from lib.common import check_rsp_code
 from lib.event_store import Event, EventStore
 
 
@@ -68,7 +68,7 @@ def post():
         values = [values]
 
     rsp = requests.post('http://inventory-service:5000/decr_from_order', json=values)
-    check_rsp(rsp)
+    check_rsp_code(rsp)
 
     if not rsp.json():
         raise ValueError("out of stock")
@@ -94,7 +94,7 @@ def put(order_id):
     order = store.find_one('order', order_id)
     for product_id in order['product_ids']:
         rsp = requests.post('http://inventory-service:5000/incr/{}'.format(product_id))
-        check_rsp(rsp)
+        check_rsp_code(rsp)
 
     value = request.get_json()
     try:
@@ -103,7 +103,7 @@ def put(order_id):
         raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
     rsp = requests.post('http://inventory-service:5000/decr_from_order', json=value)
-    check_rsp(rsp)
+    check_rsp_code(rsp)
 
     if not rsp.json():
         raise ValueError("out of stock")
@@ -115,7 +115,7 @@ def put(order_id):
 
     for product_id in value['product_ids']:
         rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))
-        check_rsp(rsp)
+        check_rsp_code(rsp)
 
     return json.dumps(True)
 
@@ -127,7 +127,7 @@ def delete(order_id):
     if order:
         for product_id in order['product_ids']:
             rsp = requests.post('http://inventory-service:5000/incr/{}'.format(product_id))
-            check_rsp(rsp)
+            check_rsp_code(rsp)
 
         # trigger event
         store.publish(Event('order', 'deleted', **order))
