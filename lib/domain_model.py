@@ -39,7 +39,15 @@ class DomainModel(object):
             result[eid] = self.redis.hgetall('{}_entity:{}'.format(_topic, eid))
             for k, v in result[eid].items():
                 if is_key(v):
-                    result[eid][k] = self.redis.lrange(v, 0, -1)
+                    rtype = self.redis.type(v)
+                    if rtype == 'list':
+                        result[eid][k] = self.redis.lrange(v, 0, -1)
+                    elif rtype == 'set':
+                        result[eid][k] = self.redis.smembers(v)
+                    elif rtype == 'hash':
+                        result[eid][k] = self.redis.hgetall(v)
+                    else:
+                        raise ValueError('unknown redis type: {}'.format(rtype))
         return result
 
     def update(self, _topic, _values):

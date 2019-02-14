@@ -205,8 +205,6 @@ class Subscriber(threading.Thread):
 
     def __init__(self, _topic, _action, _handler, _redis):
         """
-        Initialize a subscriber thread.
-
         :param _topic: The topic to subscirbe to.
         :param _action: The action to scubscribe to.
         :param _handler: A handler function.
