@@ -1,5 +1,5 @@
-# Ordershop
-Microservice architecture sample application.
+# OrderShop
+Redis as an event store in a microservices architecture.
 
 Start the application by `docker-compose up`.
 
