@@ -1,4 +1,5 @@
-from lib.common import is_key
+def is_key(_value):
+    return '_' in _value and ':' in _value
 
 
 class DomainModel(object):

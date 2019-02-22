@@ -5,7 +5,7 @@ from redis import StrictRedis
 
 import requests
 
-from lib.common import log_info, log_error
+from common.utils import log_info, log_error
 from lib.event_store import EventStore
 
 

@@ -1,8 +1,6 @@
 import atexit
-import time
 import json
 import os
-import uuid
 
 from redis import StrictRedis
 from flask import request
@@ -10,19 +8,9 @@ from flask import Flask
 
 import requests
 
-from lib.common import log_error, log_info
+from common.factory import create_billing
+from common.utils import log_error, log_info
 from lib.event_store import Event, EventStore
-
-
-class Billing(object):
-    """
-    Billing Entity class.
-    """
-
-    def __init__(self, _order_id):
-        self.id = str(uuid.uuid4())
-        self.order_id = _order_id
-        self.done = time.time()
 
 
 app = Flask(__name__)
@@ -113,14 +101,14 @@ def post():
     billing_ids = []
     for value in values:
         try:
-            new_billing = Billing(value['order_id'])
+            new_billing = create_billing(value['order_id'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'order_id'")
 
         # trigger event
-        store.publish(Event('billing', 'created', **new_billing.__dict__))
+        store.publish(Event('billing', 'created', **new_billing))
 
-        billing_ids.append(new_billing.id)
+        billing_ids.append(new_billing['id'])
 
     return json.dumps(billing_ids)
 
@@ -130,14 +118,14 @@ def put(billing_id):
 
     value = request.get_json()
     try:
-        billing = Billing(value['order_id'])
+        billing = create_billing(value['order_id'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'order_id'")
 
-    billing.id = billing_id
+    billing['id'] = billing_id
 
     # trigger event
-    store.publish(Event('billing', 'updated', **billing.__dict__))
+    store.publish(Event('billing', 'updated', **billing))
 
     return json.dumps(True)
 

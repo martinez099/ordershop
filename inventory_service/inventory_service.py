@@ -1,24 +1,13 @@
 import atexit
 import json
 import os
-import uuid
 
 from redis import StrictRedis
 from flask import request
 from flask import Flask
 
+from common.factory import create_inventory
 from lib.event_store import Event, EventStore
-
-
-class Inventory(object):
-    """
-    Inventory Entity class.
-    """
-
-    def __init__(self, _product_id, _amount):
-        self.id = str(uuid.uuid4())
-        self.product_id = _product_id
-        self.amount = int(_amount)
 
 
 app = Flask(__name__)
@@ -54,14 +43,14 @@ def post():
     inventory_ids = []
     for value in values:
         try:
-            new_inventory = Inventory(value['product_id'], value['amount'])
+            new_inventory = create_inventory(value['product_id'], value['amount'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'product_id' and/or 'amount'")
 
         # trigger event
-        store.publish(Event('inventory', 'created', **new_inventory.__dict__))
+        store.publish(Event('inventory', 'created', **new_inventory))
 
-        inventory_ids.append(new_inventory.id)
+        inventory_ids.append(new_inventory['id'])
 
     return json.dumps(inventory_ids)
 
@@ -71,14 +60,14 @@ def put(inventory_id):
 
     value = request.get_json()
     try:
-        inventory = Inventory(value['product_id'], value['amount'])
+        inventory = create_inventory(value['product_id'], value['amount'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'name' and/or 'price'")
 
-    inventory.id = inventory_id
+    inventory['id'] = inventory_id
 
     # trigger event
-    store.publish(Event('inventory', 'updated', **inventory.__dict__))
+    store.publish(Event('inventory', 'updated', **inventory))
 
     return json.dumps(True)
 

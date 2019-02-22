@@ -6,7 +6,7 @@ import unittest
 import redis
 import requests
 
-from lib.common import check_rsp_code
+from common.utils import check_rsp_code
 
 
 BASE_URL = 'http://localhost:5000'

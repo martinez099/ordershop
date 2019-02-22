@@ -2,25 +2,14 @@ import atexit
 import json
 import os
 import requests
-import uuid
 
 from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from lib.common import check_rsp_code
+from common.factory import create_order
+from common.utils import check_rsp_code
 from lib.event_store import Event, EventStore
-
-
-class Order(object):
-    """
-    Order Entity class.
-    """
-
-    def __init__(self, _product_ids, _customer_id):
-        self.id = str(uuid.uuid4())
-        self.product_ids = _product_ids
-        self.customer_id = _customer_id
 
 
 app = Flask(__name__)
@@ -76,14 +65,14 @@ def post():
     order_ids = []
     for value in values:
         try:
-            new_order = Order(value['product_ids'], value['customer_id'])
+            new_order = create_order(value['product_ids'], value['customer_id'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
         # trigger event
-        store.publish(Event('order', 'created', **new_order.__dict__))
+        store.publish(Event('order', 'created', **new_order))
 
-        order_ids.append(new_order.id)
+        order_ids.append(new_order['id'])
 
     return json.dumps(order_ids)
 
@@ -98,7 +87,7 @@ def put(order_id):
 
     value = request.get_json()
     try:
-        order = Order(value['product_ids'], value['customer_id'])
+        order = create_order(value['product_ids'], value['customer_id'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
@@ -108,10 +97,10 @@ def put(order_id):
     if not rsp.json():
         raise ValueError("out of stock")
 
-    order.id = order_id
+    order['id'] = order_id
 
     # trigger event
-    store.publish(Event('order', 'updated', **order.__dict__))
+    store.publish(Event('order', 'updated', **order))
 
     for product_id in value['product_ids']:
         rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))

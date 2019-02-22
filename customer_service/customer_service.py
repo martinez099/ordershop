@@ -1,24 +1,13 @@
 import atexit
 import json
 import os
-import uuid
 
 from redis import StrictRedis
 from flask import request
 from flask import Flask
 
+from common.factory import create_customer
 from lib.event_store import Event, EventStore
-
-
-class Customer(object):
-    """
-    Customer Entity class.
-    """
-
-    def __init__(self, _name, _email):
-        self.id = str(uuid.uuid4())
-        self.name = _name
-        self.email = _email
 
 
 app = Flask(__name__)
@@ -55,14 +44,14 @@ def post():
     customer_ids = []
     for value in values:
         try:
-            new_customer = Customer(value['name'], value['email'])
+            new_customer = create_customer(value['name'], value['email'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'name' and/or 'email'")
 
         # trigger event
-        store.publish(Event('customer', 'created', **new_customer.__dict__))
+        store.publish(Event('customer', 'created', **new_customer))
 
-        customer_ids.append(new_customer.id)
+        customer_ids.append(new_customer['id'])
 
     return json.dumps(customer_ids)
 
@@ -72,14 +61,14 @@ def put(customer_id):
 
     value = request.get_json()
     try:
-        customer = Customer(value['name'], value['email'])
+        customer = create_customer(value['name'], value['email'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'name' and/or 'email'")
 
-    customer.id = customer_id
+    customer['id'] = customer_id
 
     # trigger event
-    store.publish(Event('customer', 'updated', **customer.__dict__))
+    store.publish(Event('customer', 'updated', **customer))
 
     return json.dumps(True)
 

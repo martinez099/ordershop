@@ -1,24 +1,13 @@
 import atexit
 import json
 import os
-import uuid
 
 from redis import StrictRedis
 from flask import request
 from flask import Flask
 
+from common.factory import create_product
 from lib.event_store import Event, EventStore
-
-
-class Product(object):
-    """
-    Product Entity class.
-    """
-
-    def __init__(self, _name, _price):
-        self.id = str(uuid.uuid4())
-        self.name = _name
-        self.price = _price
 
 
 app = Flask(__name__)
@@ -55,14 +44,14 @@ def post():
     product_ids = []
     for value in values:
         try:
-            new_product = Product(value['name'], value['price'])
+            new_product = create_product(value['name'], value['price'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'name' and/or 'price'")
 
         # trigger event
-        store.publish(Event('product', 'created', **new_product.__dict__))
+        store.publish(Event('product', 'created', **new_product))
 
-        product_ids.append(new_product.id)
+        product_ids.append(new_product['id'])
 
     return json.dumps(product_ids)
 
@@ -72,14 +61,14 @@ def put(product_id):
 
     value = request.get_json()
     try:
-        product = Product(value['name'], value['price'])
+        product = create_product(value['name'], value['price'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'name' and/or 'price'")
 
-    product.id = product_id
+    product['id'] = product_id
 
     # trigger event
-    store.publish(Event('product', 'updated', **product.__dict__))
+    store.publish(Event('product', 'updated', **product))
 
     return json.dumps(True)
 

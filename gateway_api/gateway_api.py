@@ -6,7 +6,7 @@ from redis import StrictRedis
 from flask import request
 from flask import Flask
 
-from lib.common import check_rsp_code
+from common.utils import check_rsp_code
 from lib.event_store import EventStore
 
 app = Flask(__name__)
