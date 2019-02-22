@@ -2,16 +2,15 @@ import json
 
 import requests
 
-from redis import StrictRedis
 from flask import request
 from flask import Flask
 
 from common.utils import check_rsp_code
 from lib.event_store import EventStore
 
+
 app = Flask(__name__)
-redis = StrictRedis(decode_responses=True, host='redis')
-store = EventStore(redis)
+store = EventStore()
 
 
 def proxy_command_request(_base_url):

@@ -1,16 +1,13 @@
 import atexit
 import json
 
-from redis import StrictRedis
-
 import requests
 
 from common.utils import log_info, log_error
 from lib.event_store import EventStore
 
 
-redis = StrictRedis(decode_responses=True, host='redis')
-store = EventStore(redis)
+store = EventStore()
 
 
 def customer_created(item):

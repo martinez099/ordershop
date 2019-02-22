@@ -4,6 +4,8 @@ import threading
 import time
 import uuid
 
+from redis import StrictRedis
+
 from lib.domain_model import DomainModel
 
 
@@ -30,13 +32,10 @@ class EventStore(object):
     Event Store class.
     """
 
-    def __init__(self, _redis):
-        """
-        :param _redis: A Redis instance.
-        """
-        self.redis = _redis
+    def __init__(self):
+        self.redis = StrictRedis(decode_responses=True, host='redis')
         self.subscribers = {}
-        self.domain_model = DomainModel(_redis)
+        self.domain_model = DomainModel(self.redis)
 
     def publish(self, _event):
         """

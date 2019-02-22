@@ -3,7 +3,6 @@ import json
 import os
 import requests
 
-from redis import StrictRedis
 from flask import request
 from flask import Flask
 
@@ -13,8 +12,8 @@ from lib.event_store import Event, EventStore
 
 
 app = Flask(__name__)
-redis = StrictRedis(decode_responses=True, host='redis')
-store = EventStore(redis)
+store = EventStore()
+
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
     store.subscribe_to_entity_events('order')

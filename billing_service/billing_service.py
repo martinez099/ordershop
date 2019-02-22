@@ -2,7 +2,6 @@ import atexit
 import json
 import os
 
-from redis import StrictRedis
 from flask import request
 from flask import Flask
 
@@ -14,8 +13,7 @@ from lib.event_store import Event, EventStore
 
 
 app = Flask(__name__)
-redis = StrictRedis(decode_responses=True, host='redis')
-store = EventStore(redis)
+store = EventStore()
 
 
 def order_created(item):

@@ -1,12 +1,10 @@
 import json
 
-from redis import StrictRedis
 from flask import request
 from flask import Flask
 
 
 app = Flask(__name__)
-redis = StrictRedis(decode_responses=True, host='redis')
 
 
 @app.route('/email', methods=['POST'])
