@@ -14,8 +14,6 @@ class Event(object):
 
     def __init__(self, _topic, _action, **_entity):
         """
-        Initialize an event.
-
         :param _topic: The event topic.
         :param _action: The event action.
         :param _entity: The event entity.
@@ -34,8 +32,6 @@ class EventStore(object):
 
     def __init__(self, _redis):
         """
-        Initialize an event store.
-
         :param _redis: A Redis instance.
         """
         self.redis = _redis
@@ -111,7 +107,12 @@ class EventStore(object):
         :return: A dict mapping id -> dict of all aggregated events.
         """
 
-        result = self.read_from_entity_cache(_topic)
+        result = {}
+
+        # read from cache
+        if self.domain_model.exists(_topic):
+            result = self.domain_model.retrieve(_topic)
+
         if not result:
 
             # get created entities
@@ -134,39 +135,61 @@ class EventStore(object):
                 updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
                 result = EventStore.set_updated(result, updated_entities)
 
-            self.write_into_entity_cache(_topic, result)
+            # write into cache
+            for k, v in result.items():
+                self.domain_model.create(_topic, v)
 
         return result
 
-    def read_from_entity_cache(self, _topic):
-        if self.domain_model.exists(_topic):
-            return self.domain_model.retrieve(_topic)
-
-    def write_into_entity_cache(self, _topic, _values):
-        for k, v in _values.items():
-            self.domain_model.create(_topic, v)
-
     def subscribe_to_entity_events(self, _topic):
+        """
+        Keep entity cache up to date.
+
+        :param _topic: The entity type.
+        """
         self.subscribe(_topic, 'created', functools.partial(self.entity_created, _topic))
         self.subscribe(_topic, 'deleted', functools.partial(self.entity_deleted, _topic))
         self.subscribe(_topic, 'updated', functools.partial(self.entity_updated, _topic))
 
     def unsubscribe_from_entity_events(self, _topic):
+        """
+        Stop keeping entity cache up to date.
+
+        :param _topic: The entity type.
+        """
         self.unsubscribe(_topic, 'created', functools.partial(self.entity_created, _topic))
         self.unsubscribe(_topic, 'deleted', functools.partial(self.entity_deleted, _topic))
         self.unsubscribe(_topic, 'updated', functools.partial(self.entity_updated, _topic))
 
     def entity_created(self, _topic, _item):
+        """
+        Event handler for entity created events, i.e. create a cached entity.
+
+        :param _topic: The entity type.
+        :param _item: A dict with entity properties.
+        """
         if self.domain_model.exists(_topic):
             entity = json.loads(_item[1][0][1]['entity'])
             self.domain_model.create(_topic, entity)
 
     def entity_deleted(self, _topic, _item):
+        """
+        Event handler for entity deleted events, i.e. delete a cached entity.
+
+        :param _topic: The entity type.
+        :param _item: A dict with entity properties.
+        """
         if self.domain_model.exists(_topic):
             entity = json.loads(_item[1][0][1]['entity'])
             self.domain_model.delete(_topic, entity)
 
     def entity_updated(self, _topic, _item):
+        """
+        Event handler for entity updated events, i.e. update a cached entity.
+
+        :param _topic: The entity type.
+        :param _item: A dict with entity properties.
+        """
         if self.domain_model.exists(_topic):
             entity = json.loads(_item[1][0][1]['entity'])
             self.domain_model.update(_topic, entity)
