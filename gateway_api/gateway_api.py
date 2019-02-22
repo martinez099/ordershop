@@ -14,6 +14,11 @@ store = EventStore()
 
 
 def proxy_command_request(_base_url):
+    """
+    Helper function to proxy POST, PUT and DELETE requests to the according service.
+
+    :param _base_url: The URL of the service.
+    """
 
     # handle POST
     if request.method == 'POST':
