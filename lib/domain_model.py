@@ -1,4 +1,10 @@
 def is_key(_value):
+    """
+    Check if a value is a key, i.e. has to be looked up on Redis root level.
+
+    :param _value: The string to be checked.
+    :return: True if the given value is a Redis key, false otherwise.
+    """
     return '_' in _value and ':' in _value
 
 
@@ -9,14 +15,15 @@ class DomainModel(object):
     redis = None
 
     def __init__(self, _redis):
-        """
-        Initialize a domain model.
-
-        :param _redis: A Redis instance.
-        """
         self.redis = _redis
 
     def create(self, _topic, _values):
+        """
+        Set an entity.
+
+        :param _topic: The type of entity.
+        :param _values: The entity properties.
+        """
         self.redis.sadd('{}_ids'.format(_topic), _values['id'])
         for k, v in _values.items():
             if isinstance(v, list):
@@ -35,6 +42,12 @@ class DomainModel(object):
                 self.redis.hset('{}_entity:{}'.format(_topic, _values['id']), k, v)
 
     def retrieve(self, _topic):
+        """
+        Get an entity.
+
+        :param _topic: The type of entity.
+        :return: A dict with the entity properties.
+        """
         result = {}
         for eid in self.redis.smembers('{}_ids'.format(_topic)):
             result[eid] = self.redis.hgetall('{}_entity:{}'.format(_topic, eid))
@@ -52,6 +65,12 @@ class DomainModel(object):
         return result
 
     def update(self, _topic, _values):
+        """
+        Delete and set an entity.
+
+        :param _topic: The type of entity.
+        :param _values: The entity properties.
+        """
         for k, v in _values.items():
             if isinstance(v, list):
                 lid = '{}_{}:{}'.format(_topic, k, _values['id'])
@@ -72,6 +91,12 @@ class DomainModel(object):
                 self.redis.hset('{}_entity:{}'.format(_topic, _values['id']), k, v)
 
     def delete(self, _topic, _values):
+        """
+        Delete an entity.
+
+        :param _topic: The type of entity.
+        :param _values: The entity properties.
+        """
         self.redis.srem('{}_ids'.format(_topic), 1, _values['id'])
         self.redis.delete('{}_entity:{}'.format(_topic, _values['id']))
         for k, v in _values.items():
@@ -79,4 +104,10 @@ class DomainModel(object):
                 self.redis.delete('{}_{}:{}'.format(_topic, k, _values['id']))
 
     def exists(self, _topic):
+        """
+        Check if an entity exists.
+
+        :param _topic: The type of entity.
+        :return: True iff an entity exists, else False.
+        """
         return self.redis.exists('{}_ids'.format(_topic))
