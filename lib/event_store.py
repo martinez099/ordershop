@@ -243,6 +243,9 @@ class Subscriber(threading.Thread):
         return bool(self.handlers)
 
     def run(self):
+        """
+        Poll the event stream and call each handler for each entry returned.
+        """
         if self._running:
             return
 
@@ -257,10 +260,23 @@ class Subscriber(threading.Thread):
         self._running = False
 
     def stop(self):
+        """
+        Stop polling the event stream.
+        """
         self.subscribed = False
 
     def add_handler(self, _handler):
+        """
+        Add an event handler.
+
+        :param _handler: The event handler function.
+        """
         self.handlers.append(_handler)
 
     def rem_handler(self, _handler):
+        """
+        Remove an event handler.
+
+        :param _handler: The event handler function.
+        """
         self.handlers.remove(_handler)
