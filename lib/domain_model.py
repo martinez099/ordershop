@@ -16,7 +16,6 @@ class DomainModel(object):
 
     def __init__(self, _redis):
         """
-
         :param _redis: A redis instance.
         """
         self.redis = _redis

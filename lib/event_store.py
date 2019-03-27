@@ -105,7 +105,6 @@ class EventStore(object):
         :param _topic: The event topic.
         :return: A dict mapping id -> dict of all aggregated events.
         """
-
         result = {}
 
         # read from cache
@@ -114,28 +113,34 @@ class EventStore(object):
 
         if not result:
 
+            # read all events at once
+            with self.redis.pipeline() as pipe:
+                pipe.multi()
+                pipe.xrange('events:{}_created'.format(_topic))
+                pipe.xrange('events:{}_deleted'.format(_topic))
+                pipe.xrange('events:{}_updated'.format(_topic))
+                created_events, deleted_events, updated_events = pipe.execute()
+
             # get created entities
-            created_events = self.redis.xrange('events:{}_created'.format(_topic))
             if created_events:
                 created_entities = map(lambda x: json.loads(x[1]['entity']), created_events)
-                result = dict(map(lambda x: (x['id'], x), created_entities))
+                created_entities = map(lambda x: (x['id'], x), created_entities)
+                result = dict(created_entities)
 
             # remove deleted entities
-            deleted_events = self.redis.xrange('events:{}_deleted'.format(_topic))
             if deleted_events:
                 deleted_entities = map(lambda x: json.loads(x[1]['entity']), deleted_events)
                 deleted_entities = map(lambda x: x['id'], deleted_entities)
                 result = EventStore.remove_deleted(result, deleted_entities)
 
             # set updated entities
-            updated_events = self.redis.xrange('events:{}_updated'.format(_topic))
             if updated_events:
                 updated_entities = map(lambda x: json.loads(x[1]['entity']), updated_events)
                 updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
                 result = EventStore.set_updated(result, updated_entities)
 
             # write into cache
-            for k, v in result.items():
+            for v in result.values():
                 self.domain_model.create(_topic, v)
 
         return result
@@ -244,7 +249,7 @@ class Subscriber(threading.Thread):
 
     def run(self):
         """
-        Poll the event stream and call each handler for each entry returned.
+        Poll the event stream and call each handler with each entry returned.
         """
         if self._running:
             return
