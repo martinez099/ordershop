@@ -44,7 +44,7 @@ class EventStore(object):
         :param _event: The event to publish.
         :return: Success.
         """
-        key = 'events:{}_{}'.format(_event.topic, _event.action)
+        key = 'events:{{{0}}}_{1}'.format(_event.topic, _event.action)
         entity = json.dumps(_event.entity)
         entry_id = '{0:.6f}'.format(_event.ts).replace('.', '-')
 
@@ -116,16 +116,15 @@ class EventStore(object):
             # read all events at once
             with self.redis.pipeline() as pipe:
                 pipe.multi()
-                pipe.xrange('events:{}_created'.format(_topic))
-                pipe.xrange('events:{}_deleted'.format(_topic))
-                pipe.xrange('events:{}_updated'.format(_topic))
+                pipe.xrange('events:{{{0}}}_created'.format(_topic))
+                pipe.xrange('events:{{{0}}}_deleted'.format(_topic))
+                pipe.xrange('events:{{{0}}}_updated'.format(_topic))
                 created_events, deleted_events, updated_events = pipe.execute()
 
             # get created entities
             if created_events:
                 created_entities = map(lambda x: json.loads(x[1]['entity']), created_events)
-                created_entities = map(lambda x: (x['id'], x), created_entities)
-                result = dict(created_entities)
+                result = dict(map(lambda x: (x['id'], x), created_entities))
 
             # remove deleted entities
             if deleted_events:
@@ -239,7 +238,7 @@ class Subscriber(threading.Thread):
         """
         super(Subscriber, self).__init__()
         self._running = False
-        self.key = 'events:{}_{}'.format(_topic, _action)
+        self.key = 'events:{{{0}}}_{1}'.format(_topic, _action)
         self.subscribed = True
         self.handlers = [_handler]
         self.redis = _redis
