@@ -56,7 +56,7 @@ def billing_query(billing_id=None):
         billing = store.find_one('billing', billing_id)
         return json.dumps(billing) if billing else json.dumps(False)
     else:
-        billings = store.find_all('billing').values()
+        billings = store.find_all('billing')
         return json.dumps(list(billings))
 
 
@@ -77,7 +77,7 @@ def customer_query(customer_id=None):
         customer = store.find_one('customer', customer_id)
         return json.dumps(customer) if customer else json.dumps(False)
     else:
-        customers = store.find_all('customer').values()
+        customers = store.find_all('customer')
         return json.dumps(list(customers))
 
 
@@ -98,7 +98,7 @@ def product_query(product_id=None):
         product = store.find_one('product', product_id) or False
         return json.dumps(product) if product else json.dumps(False)
     else:
-        products = store.find_all('product').values()
+        products = store.find_all('product')
         return json.dumps(list(products))
 
 
@@ -119,7 +119,7 @@ def inventory_query(inventory_id=None):
         inventory = store.find_one('inventory', inventory_id) or False
         return json.dumps(inventory) if inventory else json.dumps(False)
     else:
-        inventory = store.find_all('inventory').values()
+        inventory = store.find_all('inventory')
         return json.dumps(list(inventory))
 
 
@@ -144,7 +144,7 @@ def order_query(order_id=None):
         check_rsp_code(rsp)
         return rsp.text
     else:
-        orders = store.find_all('order').values()
+        orders = store.find_all('order')
         return json.dumps(list(orders))
 
 
@@ -160,18 +160,12 @@ def order_command(order_id=None):
 @app.route('/report', methods=['GET'])
 def report():
 
-    products = store.find_all('product')
-    inventory = store.find_all('inventory')
-    customers = store.find_all('customer')
-    orders = store.find_all('order')
-    billings = store.find_all('billing')
-
     result = {
-        "products": list(products.values()),
-        "inventory": list(inventory.values()),
-        "customers": list(customers.values()),
-        "orders": list(orders.values()),
-        "billings": list(billings.values())
+        "products": store.find_all('product'),
+        "inventory": store.find_all('inventory'),
+        "customers": store.find_all('customer'),
+        "orders": store.find_all('order'),
+        "billings": store.find_all('billing')
     }
 
     return json.dumps(result)

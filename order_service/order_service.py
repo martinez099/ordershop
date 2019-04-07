@@ -31,14 +31,14 @@ def get(order_id=None):
 
         return json.dumps(order) if order else json.dumps(False)
     else:
-        return json.dumps([item for item in store.find_all('order').values()])
+        return json.dumps([item for item in store.find_all('order')])
 
 
 @app.route('/orders/unbilled', methods=['GET'])
 def get_unbilled():
 
-    billings = store.find_all('billing').values()
-    orders = list(store.find_all('order').values())
+    billings = store.find_all('billing')
+    orders = store.find_all('order')
 
     for billing in billings:
         to_remove = list(filter(lambda x: x['id'] == billing['order_id'], orders))

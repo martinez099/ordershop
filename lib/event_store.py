@@ -90,84 +90,22 @@ class EventStore(object):
 
     def find_one(self, _topic, _id):
         """
-        Find an event from a topic with an specific id.
+        Find an entity for a topic with an specific id.
 
-        :param _topic: The event topic.
-        :param _id: The event id.
-        :return: The event dict.
+        :param _topic: The event topic, i.e. name of entity.
+        :param _id: The entity id.
+        :return: A dict with the entity.
         """
-        return self.find_all(_topic).get(_id)
+        return self._find_all(_topic).get(_id)
 
     def find_all(self, _topic):
         """
-        Find all aggregated events for a topic.
+        Find all entites for a topic.
 
-        :param _topic: The event topic.
-        :return: A dict mapping id -> dict of all aggregated events.
+        :param _topic: The event topic, i.e name of entity.
+        :return: A list with all entitys.
         """
-
-        def _remove_deleted(_created, _deleted):
-            """
-            Remove deleted events.
-
-            :param _created: A dict mapping id -> dict of created events.
-            :param _deleted: A list of deleted ids.
-            :return: A dict without deleted events.
-            """
-            for d in _deleted:
-                del _created[d]
-            return _created
-
-        def _set_updated(_created, _updated):
-            """
-            Adapt updated events.
-
-            :param _created: A dict mapping id -> dict of created events.
-            :param _updated: A dict mapping id -> dict of updated events.
-            :return: A dict with updated events.
-            """
-            for k, v in _updated.items():
-                _created[k] = v
-            return _created
-
-        result = {}
-
-        # read from cache
-        if self.domain_model.exists(_topic):
-            result = self.domain_model.retrieve(_topic)
-
-        if not result:
-
-            # read all events at once
-            with self.redis.pipeline() as pipe:
-                pipe.multi()
-                pipe.xrange('events:{{{0}}}_created'.format(_topic))
-                pipe.xrange('events:{{{0}}}_deleted'.format(_topic))
-                pipe.xrange('events:{{{0}}}_updated'.format(_topic))
-                created_events, deleted_events, updated_events = pipe.execute()
-
-            # get created entities
-            if created_events:
-                created_entities = map(lambda x: json.loads(x[1]['entity']), created_events)
-                result = dict(map(lambda x: (x['id'], x), created_entities))
-
-            # remove deleted entities
-            if deleted_events:
-                deleted_entities = map(lambda x: json.loads(x[1]['entity']), deleted_events)
-                deleted_entities = map(lambda x: x['id'], deleted_entities)
-                result = _remove_deleted(result, deleted_entities)
-
-            # set updated entities
-            if updated_events:
-                updated_entities = map(lambda x: json.loads(x[1]['entity']), updated_events)
-                updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
-                result = _set_updated(result, updated_entities)
-
-            # write into cache
-            for v in result.values():
-                self.domain_model.create(_topic, v)
-
-        return result
+        return list(self._find_all(_topic).values())
 
     def activate_entity_cache(self, _topic):
         """
@@ -188,6 +126,61 @@ class EventStore(object):
         self.unsubscribe(_topic, 'created', functools.partial(self._entity_created, _topic))
         self.unsubscribe(_topic, 'deleted', functools.partial(self._entity_deleted, _topic))
         self.unsubscribe(_topic, 'updated', functools.partial(self._entity_updated, _topic))
+
+    def _find_all(self, _topic):
+        """
+        Find all entites for a topic.
+
+        :param _topic: The event topic, i.e name of entity.
+        :return: A dict mapping id -> entity.
+        """
+        def _remove_deleted(_created, _deleted):
+            for d in _deleted:
+                del _created[d]
+            return _created
+
+        def _set_updated(_created, _updated):
+            for k, v in _updated.items():
+                _created[k] = v
+            return _created
+
+        # read from cache
+        if self.domain_model.exists(_topic):
+            return self.domain_model.retrieve(_topic)
+
+        # read all events at once
+        with self.redis.pipeline() as pipe:
+            pipe.multi()
+            pipe.xrange('events:{{{0}}}_created'.format(_topic))
+            pipe.xrange('events:{{{0}}}_deleted'.format(_topic))
+            pipe.xrange('events:{{{0}}}_updated'.format(_topic))
+            created_events, deleted_events, updated_events = pipe.execute()
+
+        # result is a dict mapping id -> entity
+        result = {}
+
+        # get created entities
+        if created_events:
+            created_entities = map(lambda x: json.loads(x[1]['entity']), created_events)
+            result = dict(map(lambda x: (x['id'], x), created_entities))
+
+        # remove deleted entities
+        if deleted_events:
+            deleted_entities = map(lambda x: json.loads(x[1]['entity']), deleted_events)
+            deleted_entities = map(lambda x: x['id'], deleted_entities)
+            result = _remove_deleted(result, deleted_entities)
+
+        # set updated entities
+        if updated_events:
+            updated_entities = map(lambda x: json.loads(x[1]['entity']), updated_events)
+            updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
+            result = _set_updated(result, updated_entities)
+
+        # write into cache
+        for value in result.values():
+            self.domain_model.create(_topic, value)
+
+        return result
 
     def _entity_created(self, _topic, _item):
         """

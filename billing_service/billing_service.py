@@ -85,7 +85,7 @@ def get(billing_id=None):
 
         return json.dumps(billing) if billing else json.dumps(False)
     else:
-        return json.dumps([item for item in store.find_all('billing').values()])
+        return json.dumps([item for item in store.find_all('billing')])
 
 
 @app.route('/billing', methods=['POST'])

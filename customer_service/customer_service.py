@@ -28,7 +28,7 @@ def get(customer_id=None):
 
         return json.dumps(customer) if customer else json.dumps(False)
     else:
-        return json.dumps([item for item in store.find_all('customer').values()])
+        return json.dumps([item for item in store.find_all('customer')])
 
 
 @app.route('/customer', methods=['POST'])

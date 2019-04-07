@@ -29,7 +29,7 @@ def get(product_id=None):
 
         return json.dumps(product) if product else json.dumps(False)
     else:
-        return json.dumps([item for item in store.find_all('product').values()])
+        return json.dumps([item for item in store.find_all('product')])
 
 
 @app.route('/product', methods=['POST'])

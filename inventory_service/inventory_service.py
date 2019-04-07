@@ -29,7 +29,7 @@ def get(inventory_id=None):
 
         return json.dumps(inventory) if inventory else json.dumps(False)
     else:
-        return json.dumps([item for item in store.find_all('inventory').values()])
+        return json.dumps([item for item in store.find_all('inventory')])
 
 
 @app.route('/inventory', methods=['POST'])
@@ -89,7 +89,7 @@ def delete(inventory_id):
 @app.route('/incr/<product_id>/<value>', methods=['POST'])
 def incr(product_id, value=None):
 
-    inventory = list(filter(lambda x: x['product_id'] == product_id, store.find_all('inventory').values()))
+    inventory = list(filter(lambda x: x['product_id'] == product_id, store.find_all('inventory')))
     if not inventory:
         raise ValueError("could not find inventory")
 
@@ -106,7 +106,7 @@ def incr(product_id, value=None):
 @app.route('/decr/<product_id>/<value>', methods=['POST'])
 def decr(product_id, value=None):
 
-    inventory = list(filter(lambda x: x['product_id'] == product_id, store.find_all('inventory').values()))
+    inventory = list(filter(lambda x: x['product_id'] == product_id, store.find_all('inventory')))
     if not inventory:
         raise ValueError("could not find inventory")
 
@@ -137,7 +137,7 @@ def decr_from_order():
         except KeyError:
             raise ValueError("missing mandatory parameter 'product_ids'")
 
-        for inventory in store.find_all('inventory').values():
+        for inventory in store.find_all('inventory'):
 
             if not inventory['product_id'] in occurs:
                 occurs[inventory['product_id']] = 0
@@ -149,7 +149,7 @@ def decr_from_order():
                 return json.dumps(False)
 
     for k, v in occurs.items():
-        inventory = list(filter(lambda x: x['product_id'] == k, store.find_all('inventory').values()))
+        inventory = list(filter(lambda x: x['product_id'] == k, store.find_all('inventory')))
         if not inventory:
             raise ValueError("could not find inventory")
 
