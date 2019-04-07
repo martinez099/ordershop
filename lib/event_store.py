@@ -130,13 +130,13 @@ class EventStore(object):
             if deleted_events:
                 deleted_entities = map(lambda x: json.loads(x[1]['entity']), deleted_events)
                 deleted_entities = map(lambda x: x['id'], deleted_entities)
-                result = EventStore.remove_deleted(result, deleted_entities)
+                result = EventStore._remove_deleted(result, deleted_entities)
 
             # set updated entities
             if updated_events:
                 updated_entities = map(lambda x: json.loads(x[1]['entity']), updated_events)
                 updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
-                result = EventStore.set_updated(result, updated_entities)
+                result = EventStore._set_updated(result, updated_entities)
 
             # write into cache
             for v in result.values():
@@ -144,27 +144,27 @@ class EventStore(object):
 
         return result
 
-    def subscribe_to_entity_events(self, _topic):
+    def activate_entity_cache(self, _topic):
         """
         Keep entity cache up to date.
 
         :param _topic: The entity type.
         """
-        self.subscribe(_topic, 'created', functools.partial(self.entity_created, _topic))
-        self.subscribe(_topic, 'deleted', functools.partial(self.entity_deleted, _topic))
-        self.subscribe(_topic, 'updated', functools.partial(self.entity_updated, _topic))
+        self.subscribe(_topic, 'created', functools.partial(self._entity_created, _topic))
+        self.subscribe(_topic, 'deleted', functools.partial(self._entity_deleted, _topic))
+        self.subscribe(_topic, 'updated', functools.partial(self._entity_updated, _topic))
 
-    def unsubscribe_from_entity_events(self, _topic):
+    def deactivate_entity_cache(self, _topic):
         """
         Stop keeping entity cache up to date.
 
         :param _topic: The entity type.
         """
-        self.unsubscribe(_topic, 'created', functools.partial(self.entity_created, _topic))
-        self.unsubscribe(_topic, 'deleted', functools.partial(self.entity_deleted, _topic))
-        self.unsubscribe(_topic, 'updated', functools.partial(self.entity_updated, _topic))
+        self.unsubscribe(_topic, 'created', functools.partial(self._entity_created, _topic))
+        self.unsubscribe(_topic, 'deleted', functools.partial(self._entity_deleted, _topic))
+        self.unsubscribe(_topic, 'updated', functools.partial(self._entity_updated, _topic))
 
-    def entity_created(self, _topic, _item):
+    def _entity_created(self, _topic, _item):
         """
         Event handler for entity created events, i.e. create a cached entity.
 
@@ -175,7 +175,7 @@ class EventStore(object):
             entity = json.loads(_item[1][0][1]['entity'])
             self.domain_model.create(_topic, entity)
 
-    def entity_deleted(self, _topic, _item):
+    def _entity_deleted(self, _topic, _item):
         """
         Event handler for entity deleted events, i.e. delete a cached entity.
 
@@ -186,7 +186,7 @@ class EventStore(object):
             entity = json.loads(_item[1][0][1]['entity'])
             self.domain_model.delete(_topic, entity)
 
-    def entity_updated(self, _topic, _item):
+    def _entity_updated(self, _topic, _item):
         """
         Event handler for entity updated events, i.e. update a cached entity.
 
@@ -198,30 +198,30 @@ class EventStore(object):
             self.domain_model.update(_topic, entity)
 
     @staticmethod
-    def remove_deleted(created, deleted):
+    def _remove_deleted(_created, _deleted):
         """
         Remove deleted events.
 
-        :param created: A dict mapping id -> dict of created events.
-        :param deleted: A list of deleted ids.
+        :param _created: A dict mapping id -> dict of created events.
+        :param _deleted: A list of deleted ids.
         :return: A dict without deleted events.
         """
-        for d in deleted:
-            del created[d]
-        return created
+        for d in _deleted:
+            del _created[d]
+        return _created
 
     @staticmethod
-    def set_updated(created, updated):
+    def _set_updated(_created, _updated):
         """
         Adapt updated events.
 
-        :param created: A dict mapping id -> dict of created events.
-        :param updated: A dict mapping id -> dict of updated events.
+        :param _created: A dict mapping id -> dict of created events.
+        :param _updated: A dict mapping id -> dict of updated events.
         :return: A dict with updated events.
         """
-        for k, v in updated.items():
-            created[k] = v
-        return created
+        for k, v in _updated.items():
+            _created[k] = v
+        return _created
 
 
 class Subscriber(threading.Thread):

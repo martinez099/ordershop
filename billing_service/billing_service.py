@@ -68,8 +68,8 @@ def unsubscribe_from_domain_events():
 
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-    store.subscribe_to_entity_events('billing')
-    atexit.register(store.unsubscribe_from_entity_events, 'billing')
+    store.activate_entity_cache('billing')
+    atexit.register(store.deactivate_entity_cache, 'billing')
     subscribe_to_domain_events()
     atexit.register(unsubscribe_from_domain_events)
 

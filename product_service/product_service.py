@@ -14,8 +14,8 @@ store = EventStore()
 
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-    store.subscribe_to_entity_events('product')
-    atexit.register(store.unsubscribe_from_entity_events, 'product')
+    store.activate_entity_cache('product')
+    atexit.register(store.deactivate_entity_cache, 'product')
 
 
 @app.route('/products', methods=['GET'])

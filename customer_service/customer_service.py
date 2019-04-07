@@ -13,8 +13,8 @@ app = Flask(__name__)
 store = EventStore()
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-    store.subscribe_to_entity_events('customer')
-    atexit.register(store.unsubscribe_from_entity_events, 'customer')
+    store.activate_entity_cache('customer')
+    atexit.register(store.deactivate_entity_cache, 'customer')
 
 
 @app.route('/customers', methods=['GET'])
