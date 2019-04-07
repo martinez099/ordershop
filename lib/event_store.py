@@ -105,6 +105,31 @@ class EventStore(object):
         :param _topic: The event topic.
         :return: A dict mapping id -> dict of all aggregated events.
         """
+
+        def _remove_deleted(_created, _deleted):
+            """
+            Remove deleted events.
+
+            :param _created: A dict mapping id -> dict of created events.
+            :param _deleted: A list of deleted ids.
+            :return: A dict without deleted events.
+            """
+            for d in _deleted:
+                del _created[d]
+            return _created
+
+        def _set_updated(_created, _updated):
+            """
+            Adapt updated events.
+
+            :param _created: A dict mapping id -> dict of created events.
+            :param _updated: A dict mapping id -> dict of updated events.
+            :return: A dict with updated events.
+            """
+            for k, v in _updated.items():
+                _created[k] = v
+            return _created
+
         result = {}
 
         # read from cache
@@ -130,13 +155,13 @@ class EventStore(object):
             if deleted_events:
                 deleted_entities = map(lambda x: json.loads(x[1]['entity']), deleted_events)
                 deleted_entities = map(lambda x: x['id'], deleted_entities)
-                result = EventStore._remove_deleted(result, deleted_entities)
+                result = _remove_deleted(result, deleted_entities)
 
             # set updated entities
             if updated_events:
                 updated_entities = map(lambda x: json.loads(x[1]['entity']), updated_events)
                 updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
-                result = EventStore._set_updated(result, updated_entities)
+                result = _set_updated(result, updated_entities)
 
             # write into cache
             for v in result.values():
@@ -196,32 +221,6 @@ class EventStore(object):
         if self.domain_model.exists(_topic):
             entity = json.loads(_item[1][0][1]['entity'])
             self.domain_model.update(_topic, entity)
-
-    @staticmethod
-    def _remove_deleted(_created, _deleted):
-        """
-        Remove deleted events.
-
-        :param _created: A dict mapping id -> dict of created events.
-        :param _deleted: A list of deleted ids.
-        :return: A dict without deleted events.
-        """
-        for d in _deleted:
-            del _created[d]
-        return _created
-
-    @staticmethod
-    def _set_updated(_created, _updated):
-        """
-        Adapt updated events.
-
-        :param _created: A dict mapping id -> dict of created events.
-        :param _updated: A dict mapping id -> dict of updated events.
-        :return: A dict with updated events.
-        """
-        for k, v in _updated.items():
-            _created[k] = v
-        return _created
 
 
 class Subscriber(threading.Thread):
