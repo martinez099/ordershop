@@ -134,7 +134,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         rsp = requests.get('{}/order/{}'.format(BASE_URL, orders[2]['id']))
         check_rsp_code(rsp)
-        assert rsp.json() is False
+        assert rsp.json() is None
 
     @staticmethod
     def test_7_delete_third_customer():
@@ -151,7 +151,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         rsp = requests.get('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
         check_rsp_code(rsp)
-        assert rsp.json() is False
+        assert rsp.json() is None
 
     @staticmethod
     def test_8_perform_billing():

@@ -53,11 +53,10 @@ def proxy_command_request(_base_url):
 def billing_query(billing_id=None):
 
     if billing_id:
-        billing = store.find_one('billing', billing_id)
-        return json.dumps(billing) if billing else json.dumps(False)
+        result = store.find_one('billing', billing_id)
     else:
-        billings = store.find_all('billing')
-        return json.dumps(list(billings))
+        result = store.find_all('billing')
+    return json.dumps(result)
 
 
 @app.route('/billing', methods=['POST'])
@@ -74,11 +73,10 @@ def billing_command(billing_id=None):
 def customer_query(customer_id=None):
 
     if customer_id:
-        customer = store.find_one('customer', customer_id)
-        return json.dumps(customer) if customer else json.dumps(False)
+        result = store.find_one('customer', customer_id)
     else:
-        customers = store.find_all('customer')
-        return json.dumps(list(customers))
+        result = store.find_all('customer')
+    return json.dumps(result)
 
 
 @app.route('/customer', methods=['POST'])
@@ -95,11 +93,10 @@ def customer_command(customer_id=None):
 def product_query(product_id=None):
 
     if product_id:
-        product = store.find_one('product', product_id) or False
-        return json.dumps(product) if product else json.dumps(False)
+        result = store.find_one('product', product_id)
     else:
-        products = store.find_all('product')
-        return json.dumps(list(products))
+        result = store.find_all('product')
+    return json.dumps(result)
 
 
 @app.route('/product', methods=['POST'])
@@ -116,11 +113,10 @@ def product_command(product_id=None):
 def inventory_query(inventory_id=None):
 
     if inventory_id:
-        inventory = store.find_one('inventory', inventory_id) or False
-        return json.dumps(inventory) if inventory else json.dumps(False)
+        result = store.find_one('inventory', inventory_id)
     else:
-        inventory = store.find_all('inventory')
-        return json.dumps(list(inventory))
+        result = store.find_all('inventory')
+    return json.dumps(result)
 
 
 @app.route('/inventory', methods=['POST'])
@@ -136,16 +132,16 @@ def inventory_command(inventory_id=None):
 @app.route('/orders/unbilled', methods=['GET'])
 def order_query(order_id=None):
 
-    if order_id:
-        order = store.find_one('order', order_id)
-        return json.dumps(order) if order else json.dumps(False)
-    elif request.path.endswith('/orders/unbilled'):
+    # handle additional query 'unbilled orders'
+    if request.path.endswith('/orders/unbilled'):
         rsp = requests.get('http://order-service:5000/orders/unbilled')
         check_rsp_code(rsp)
         return rsp.text
+    elif order_id:
+        result = store.find_one('order', order_id)
     else:
-        orders = store.find_all('order')
-        return json.dumps(list(orders))
+        result = store.find_all('order')
+    return json.dumps(result)
 
 
 @app.route('/order', methods=['POST'])
