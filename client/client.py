@@ -11,7 +11,7 @@ import redis
 BASE_URL = 'http://localhost:5000'
 
 
-def http_req(_url, _data=None, _method='POST'):
+def http_cmd_req(_url, _data=None, _method='POST'):
     """
     Do a HTTP request.
 
@@ -149,7 +149,7 @@ class OrderShopTestCase(unittest.TestCase):
 
         # create customers
         customers = create_customers(10)
-        rsp = http_req('{}/customers'.format(BASE_URL), customers)
+        rsp = http_cmd_req('{}/customers'.format(BASE_URL), customers)
         check_rsp(rsp)
 
         # check result
@@ -161,7 +161,7 @@ class OrderShopTestCase(unittest.TestCase):
 
         # create propducts
         products = create_products(10)
-        rsp = http_req('{}/products'.format(BASE_URL), products)
+        rsp = http_cmd_req('{}/products'.format(BASE_URL), products)
         check_rsp(rsp)
 
         # check result
@@ -178,7 +178,7 @@ class OrderShopTestCase(unittest.TestCase):
 
         # create inventory
         inventory = create_inventory([product['id'] for product in products], 100)
-        rsp = http_req('{}/inventory'.format(BASE_URL), inventory)
+        rsp = http_cmd_req('{}/inventory'.format(BASE_URL), inventory)
         check_rsp(rsp)
 
         # check result
@@ -202,7 +202,7 @@ class OrderShopTestCase(unittest.TestCase):
         orders = create_orders(10, customers, products)
         ordered = 0
         for order in orders:
-            rsp = http_req('{}/orders'.format(BASE_URL), order)
+            rsp = http_cmd_req('{}/orders'.format(BASE_URL), order)
             check_rsp(rsp)
             ordered += 1
 
@@ -225,7 +225,7 @@ class OrderShopTestCase(unittest.TestCase):
 
         # update second order
         orders[1]['product_ids'][0] = get_any_id(products, orders[1]['product_ids'][0])
-        rsp = http_req('{}/order/{}'.format(BASE_URL, orders[1]['id']), orders[1], 'PUT')
+        rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[1]['id']), orders[1], 'PUT')
         check_rsp(rsp)
 
         # check result
@@ -243,7 +243,7 @@ class OrderShopTestCase(unittest.TestCase):
         orders = json.loads(rsp)
 
         # delete third order
-        rsp = http_req('{}/order/{}'.format(BASE_URL, orders[2]['id']), _method='DELETE')
+        rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[2]['id']), _method='DELETE')
         check_rsp(rsp)
 
         # check result
@@ -259,7 +259,7 @@ class OrderShopTestCase(unittest.TestCase):
         customers = json.loads(rsp)
 
         # delete third customer
-        rsp = http_req('{}/customer/{}'.format(BASE_URL, customers[2]['id']), _method='DELETE')
+        rsp = http_cmd_req('{}/customer/{}'.format(BASE_URL, customers[2]['id']), _method='DELETE')
         check_rsp(rsp)
 
         # check result
@@ -275,7 +275,7 @@ class OrderShopTestCase(unittest.TestCase):
         orders = json.loads(rsp)
 
         # perform billing
-        rsp = http_req('{}/billing'.format(BASE_URL), {"order_id": orders[0]['id']})
+        rsp = http_cmd_req('{}/billing'.format(BASE_URL), {"order_id": orders[0]['id']})
         rsp = check_rsp(rsp)
 
         # check result
