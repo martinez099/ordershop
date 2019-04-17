@@ -236,7 +236,7 @@ class Subscriber(threading.Thread):
         self.redis = _redis
 
     def __len__(self):
-        return bool(self.handlers)
+        return len(self.handlers)
 
     def run(self):
         """
