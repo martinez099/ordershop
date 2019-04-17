@@ -1,18 +1,139 @@
+import json
 import pprint
 import random
 import string
 import unittest
+import urllib.request
 
 import redis
-import requests
-
-from common.utils import check_rsp_code
 
 
 BASE_URL = 'http://localhost:5000'
 
 
+def http_req(_url, _data=None, _method='POST'):
+    """
+    Do a HTTP request.
+
+    :param _url: The URL of the request.
+    :param _data: The JSON payload.
+    :param _method: The HTTP method, defaults to POST.
+    :return: The response.
+    """
+    if _data:
+        data = json.dumps(_data).encode('utf-8')
+        headers = {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Content-Length': len(data)
+        }
+        req = urllib.request.Request(_url, data=data, headers=headers, method=_method)
+    else:
+        req = urllib.request.Request(_url, method=_method)
+    return urllib.request.urlopen(req)
+
+
+def check_rsp(_rsp):
+    """
+    Check HTTP response code.
+
+    :param _rsp: The HTTP response.
+    :return: The response body.
+    """
+    if _rsp.code == 200:
+        return _rsp.read()
+    else:
+        raise Exception(str(_rsp))
+
+
+def create_customers(amount):
+    """
+    Create an amount of random customers.
+
+    :param amount: The amount of customers.
+    :return: The generated customers.
+    """
+    customers = []
+    for _ in range(amount):
+        name = "".join(random.choice(string.ascii_lowercase) for _ in range(10))
+        customers.append({
+            "name": name.title(),
+            "email": "{}@server.com".format(name)
+        })
+    return customers
+
+
+def create_products(amount):
+    """
+    Create an amount of random products.
+
+    :param amount: The amount of products.
+    :return: The generated products.
+    """
+    products = []
+    for _ in range(amount):
+        name = "".join(random.choice(string.ascii_lowercase) for _ in range(10))
+        products.append({
+            "name": name.title(),
+            "price": random.randint(10, 1000)
+        })
+    return products
+
+
+def create_inventory(product_ids, amount):
+    """
+    Create an amount of random inventories.
+
+    :param product_ids: The ID of the product the inventory refers to.
+    :param amount: The amount of products in the inventory.
+    :return: The generated inventory.
+    """
+    inventory = []
+    for product_id in product_ids:
+        inventory.append({
+            "product_id": product_id,
+            "amount": amount
+        })
+    return inventory
+
+
+def create_orders(amount, customers, products):
+    """
+    Create an amount of random orders.
+    
+    :param amount: The amount of orders.
+    :param customers: The customers of the order.
+    :param products: The products of the order.
+    :return: 
+    """
+    orders = []
+    for _ in range(amount):
+        orders.append({
+            "product_ids": [get_any_id(products) for _ in range(random.randint(1, 10))],
+            "customer_id": get_any_id(customers)
+        })
+    return orders
+
+
+def get_any_id(_entities, _but=None):
+    """
+    Get a random id out of entities.
+    
+    :param _entities: The entities to chose from.
+    :param _but: Exclude this entity.
+    :return: The randomly chosen ID.
+    """
+    _id = None
+    while not _id:
+        idx = random.randrange(len(_entities))
+        entity = _entities[idx]
+        _id = entity['id'] if entity['id'] != _but else None
+    return _id
+
+
 class OrderShopTestCase(unittest.TestCase):
+    """
+    Test Case class.
+    """
 
     def __init__(self, method_name='runTest'):
         super(OrderShopTestCase, self).__init__(method_name)
@@ -24,228 +145,160 @@ class OrderShopTestCase(unittest.TestCase):
         r = redis.StrictRedis(decode_responses=True)
         r.flushdb()
 
-    @staticmethod
-    def test_1_create_customers():
+    def test_1_create_customers(self):
 
         # create customers
-        customers = OrderShopTestCase.create_customers(10)
-        rsp = requests.post('{}/customers'.format(BASE_URL), json=customers)
-        check_rsp_code(rsp)
+        customers = create_customers(10)
+        rsp = http_req('{}/customers'.format(BASE_URL), customers)
+        check_rsp(rsp)
 
         # check result
-        rsp = requests.get('{}/customers'.format(BASE_URL))
-        check_rsp_code(rsp)
-        assert len(customers) == len(rsp.json())
+        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        self.assertEqual(len(customers), len(json.loads(rsp)))
 
-    @staticmethod
-    def test_2_create_products():
+    def test_2_create_products(self):
 
         # create propducts
-        products = OrderShopTestCase.create_products(10)
-        rsp = requests.post('{}/products'.format(BASE_URL), json=products)
-        check_rsp_code(rsp)
+        products = create_products(10)
+        rsp = http_req('{}/products'.format(BASE_URL), products)
+        check_rsp(rsp)
 
         # check result
-        rsp = requests.get('{}/products'.format(BASE_URL))
-        check_rsp_code(rsp)
-        assert len(products) == len(rsp.json())
+        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        self.assertEqual(len(products), len(json.loads(rsp)))
 
-    @staticmethod
-    def test_3_create_inventory():
+    def test_3_create_inventory(self):
 
         # load products
-        rsp = requests.get('{}/products'.format(BASE_URL))
-        check_rsp_code(rsp)
-        products = rsp.json()
+        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        products = json.loads(rsp)
 
         # create inventory
-        inventory = OrderShopTestCase.create_inventory([product['id'] for product in products], 100)
-        rsp = requests.post('{}/inventory'.format(BASE_URL), json=inventory)
-        check_rsp_code(rsp)
+        inventory = create_inventory([product['id'] for product in products], 100)
+        rsp = http_req('{}/inventory'.format(BASE_URL), inventory)
+        check_rsp(rsp)
 
         # check result
-        rsp = requests.get('{}/inventory'.format(BASE_URL))
-        check_rsp_code(rsp)
-        assert len(inventory) == len(rsp.json())
+        rsp = urllib.request.urlopen('{}/inventory'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        self.assertEqual(len(inventory), len(json.loads(rsp)))
 
-    @staticmethod
-    def test_4_create_orders():
+    def test_4_create_orders(self):
 
         # load customers
-        rsp = requests.get('{}/customers'.format(BASE_URL))
-        check_rsp_code(rsp)
-        customers = rsp.json()
+        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        customers = json.loads(rsp)
 
         # load products
-        rsp = requests.get('{}/products'.format(BASE_URL))
-        check_rsp_code(rsp)
-        products = rsp.json()
+        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        products = json.loads(rsp)
 
         # create orders
-        orders = OrderShopTestCase.create_orders(10, customers, products)
+        orders = create_orders(10, customers, products)
         ordered = 0
         for order in orders:
-            rsp = requests.post('{}/orders'.format(BASE_URL), json=order)
-            check_rsp_code(rsp)
+            rsp = http_req('{}/orders'.format(BASE_URL), order)
+            check_rsp(rsp)
             ordered += 1
 
         # check result
-        rsp = requests.get('{}/orders'.format(BASE_URL))
-        check_rsp_code(rsp)
-        assert ordered == len(rsp.json())
+        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        self.assertEqual(ordered, len(json.loads(rsp)))
 
-    @staticmethod
-    def test_5_update_second_order():
+    def test_5_update_second_order(self):
 
         # load orders
-        rsp = requests.get('{}/orders'.format(BASE_URL))
-        check_rsp_code(rsp)
-        orders = rsp.json()
+        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        orders = json.loads(rsp)
 
         # load products
-        rsp = requests.get('{}/products'.format(BASE_URL))
-        check_rsp_code(rsp)
-        products = rsp.json()
+        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        products = json.loads(rsp)
 
         # update second order
-        orders[1]['product_ids'][0] = OrderShopTestCase.get_any_product_id(products, orders[1]['product_ids'][0])
-        rsp = requests.put('{}/order/{}'.format(BASE_URL, orders[1]['id']), json=orders[1])
-        check_rsp_code(rsp)
+        orders[1]['product_ids'][0] = get_any_id(products, orders[1]['product_ids'][0])
+        rsp = http_req('{}/order/{}'.format(BASE_URL, orders[1]['id']), orders[1], 'PUT')
+        check_rsp(rsp)
 
         # check result
-        rsp = requests.get('{}/order/{}'.format(BASE_URL, orders[1]['id']))
-        check_rsp_code(rsp)
-        order = rsp.json()
-        assert order['product_ids'][0]
-        assert orders[1]['product_ids'][0] == order['product_ids'][0]
+        rsp = urllib.request.urlopen('{}/order/{}'.format(BASE_URL, orders[1]['id']))
+        rsp = check_rsp(rsp)
+        order = json.loads(rsp)
+        self.assertIsNotNone(order['product_ids'][0])
+        self.assertEqual(orders[1]['product_ids'][0], order['product_ids'][0])
 
-    @staticmethod
-    def test_6_delete_third_order():
+    def test_6_delete_third_order(self):
 
         # load orders
-        rsp = requests.get('{}/orders'.format(BASE_URL))
-        check_rsp_code(rsp)
-        orders = rsp.json()
+        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        orders = json.loads(rsp)
 
         # delete third order
-        rsp = requests.delete('{}/order/{}'.format(BASE_URL, orders[2]['id']))
-        check_rsp_code(rsp)
+        rsp = http_req('{}/order/{}'.format(BASE_URL, orders[2]['id']), _method='DELETE')
+        check_rsp(rsp)
 
         # check result
-        rsp = requests.get('{}/order/{}'.format(BASE_URL, orders[2]['id']))
-        check_rsp_code(rsp)
-        assert rsp.json() is None
+        rsp = urllib.request.urlopen('{}/order/{}'.format(BASE_URL, orders[2]['id']))
+        rsp = check_rsp(rsp)
+        self.assertIsNone(json.loads(rsp))
 
-    @staticmethod
-    def test_7_delete_third_customer():
+    def test_7_delete_third_customer(self):
 
         # load customers
-        rsp = requests.get('{}/customers'.format(BASE_URL))
-        check_rsp_code(rsp)
-        customers = rsp.json()
+        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        customers = json.loads(rsp)
 
         # delete third customer
-        rsp = requests.delete('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
-        check_rsp_code(rsp)
+        rsp = http_req('{}/customer/{}'.format(BASE_URL, customers[2]['id']), _method='DELETE')
+        check_rsp(rsp)
 
         # check result
-        rsp = requests.get('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
-        check_rsp_code(rsp)
-        assert rsp.json() is None
+        rsp = urllib.request.urlopen('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
+        rsp = check_rsp(rsp)
+        self.assertIsNone(json.loads(rsp))
 
-    @staticmethod
-    def test_8_perform_billing():
+    def test_8_perform_billing(self):
 
         # load orders
-        rsp = requests.get('{}/orders'.format(BASE_URL))
-        check_rsp_code(rsp)
-        orders = rsp.json()
+        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        orders = json.loads(rsp)
 
         # perform billing
-        rsp = requests.post('{}/billing'.format(BASE_URL), json={"order_id": orders[0]['id']})
-        check_rsp_code(rsp)
+        rsp = http_req('{}/billing'.format(BASE_URL), {"order_id": orders[0]['id']})
+        rsp = check_rsp(rsp)
 
         # check result
-        assert len(rsp.json())
+        self.assertIsNotNone(len(json.loads(rsp)))
 
-    @staticmethod
-    def test_9_get_unbilled_orders():
+    def test_9_get_unbilled_orders(self):
 
         # load unbilled orders
-        rsp = requests.get('{}/orders/unbilled'.format(BASE_URL))
-        check_rsp_code(rsp)
-        unbilled = rsp.json()
+        rsp = urllib.request.urlopen('{}/orders/unbilled'.format(BASE_URL))
+        rsp = check_rsp(rsp)
+        unbilled = json.loads(rsp)
 
         # check result
-        assert len(unbilled) == 8
+        self.assertEqual(len(unbilled), 8)
 
-    @staticmethod
-    def test_Z_print_report():
+    def test_Z_print_report(self):
 
         # load customers
-        rsp = requests.get('{}/report'.format(BASE_URL))
-        check_rsp_code(rsp)
-        report = rsp.json()
+        rsp = urllib.request.urlopen('{}/report'.format(BASE_URL))
+        rsp = check_rsp(rsp)
 
         # print result
-        pprint.pprint(report)
+        pprint.pprint(json.loads(rsp))
 
-    @staticmethod
-    def create_customers(amount):
-        customers = []
-        for _ in range(amount):
-            name = "".join(random.choice(string.ascii_lowercase) for _ in range(10))
-            customers.append({
-                "name": name.title(),
-                "email": "{}@server.com".format(name)
-            })
-        return customers
-
-    @staticmethod
-    def create_products(amount):
-        products = []
-        for _ in range(amount):
-            name = "".join(random.choice(string.ascii_lowercase) for _ in range(10))
-            products.append({
-                "name": name.title(),
-                "price": random.randint(10, 1000)
-            })
-        return products
-
-    @staticmethod
-    def create_inventory(product_ids, amount):
-        inventory = []
-        for product_id in product_ids:
-            inventory.append({
-                "product_id": product_id,
-                "amount": amount
-            })
-        return inventory
-
-    @staticmethod
-    def create_orders(amount, customers, products):
-        orders = []
-        for _ in range(amount):
-            orders.append({
-                "product_ids": [OrderShopTestCase.get_any_product_id(products) for _ in range(random.randint(1, 10))],
-                "customer_id": OrderShopTestCase.get_any_customer_id(customers)
-            })
-        return orders
-
-    @staticmethod
-    def get_any_customer_id(customers, but=None):
-        customer_id = None
-        while not customer_id:
-            idx = random.randrange(len(customers))
-            customer = customers[idx]
-            customer_id = customer['id'] if customer['id'] != but else None
-        return customer_id
-
-    @staticmethod
-    def get_any_product_id(products, but=None):
-        product_id = None
-        while not product_id:
-            idx = random.randrange(len(products))
-            product = products[idx]
-            product_id = product['id'] if product['id'] != but else None
-        return product_id
+        # check result
+        self.assertIsNotNone(rsp)
