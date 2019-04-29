@@ -2,10 +2,12 @@ FROM python:3
 
 RUN pip install grpcio
 RUN pip install grpcio-tools
-RUN pip install requests
+RUN pip install redis
 
 RUN mkdir -p /app
 
 ENV PYTHONPATH /app
 
-CMD [ "python", "/app/crm_service/crm_service.py" ]
+EXPOSE 50051
+
+CMD [ "python", "/app/event_store/event_store.py" ]

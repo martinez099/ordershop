@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package eventstore;
+
+service EventStore {
+  rpc publish (PublishRequest) returns (PublishResponse) {}
+  rpc subscribe (SubscribeRequest) returns (stream Notification) {}
+  rpc unsubscribe (UnsubscribeRequest) returns (UnsubscribeResponse) {}
+  rpc find_one (FindOneRequest) returns (FindOneResponse) {}
+  rpc find_all (FindAllRequest) returns (FindAllResponse) {}
+  rpc activate_entity_cache (ActivateEntityCacheRequest) returns (ActivateEntityCacheResponse) {}
+  rpc deactivate_entity_cache (DeactivateEntityCacheRequest) returns (DeactivateEntityCacheResponse) {}
+}
+
+message PublishRequest {
+  string event_id = 1;
+  string event_topic = 2;
+  string event_action = 3;
+  string event_entity = 4;
+}
+
+message PublishResponse {
+  string entry_id = 1;
+}
+
+message SubscribeRequest {
+  string event_topic = 1;
+  string event_action = 2;
+}
+
+message Notification {
+  string event_id = 1;
+  double event_ts = 2;
+  string event_entity = 3;
+}
+
+message UnsubscribeRequest {
+  string event_topic = 1;
+  string event_action = 2;
+}
+
+message UnsubscribeResponse {
+  bool success = 1;
+}
+
+message FindOneRequest {
+  string event_topic = 1;
+  string event_id = 2;
+}
+
+message FindOneResponse {
+  string entity = 1;
+}
+
+message FindAllRequest {
+  string event_topic = 1;
+}
+
+message FindAllResponse {
+  string entities = 1;
+}
+
+message ActivateEntityCacheRequest {
+  string event_topic = 1;
+}
+
+message ActivateEntityCacheResponse {}
+
+message DeactivateEntityCacheRequest {
+  string event_topic = 1;
+}
+
+message DeactivateEntityCacheResponse {}

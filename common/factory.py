@@ -7,7 +7,7 @@ def create_customer(_name, _email):
     Create a customer entity.
 
     :param _name: The name of the customer.
-    :param _email: The email address of the customer.
+    :param _email: The em2ail address of the customer.
     :return: A dict with the entity properties.
     """
     return {
@@ -73,4 +73,21 @@ def create_product(_name, _price):
         'id': str(uuid.uuid4()),
         'name': _name,
         'price': _price
+    }
+
+
+def create_event(_topic, _action, **_entity):
+    """
+    Create a domain event.
+
+    :param _topic: The topic of the event.
+    :param _action: The action of the event.
+    :param _entity: The entity affected by the event.
+    :return: A dict with the event properties.
+    """
+    return {
+        'id': str(uuid.uuid4()),
+        'topic': _topic,
+        'action': _action,
+        'entity': _entity
     }

@@ -2,8 +2,9 @@ ARG SERVICE_NAME
 
 FROM python:3
 
+RUN pip install grpcio
+RUN pip install grpcio-tools
 RUN pip install flask
-RUN pip install redis
 RUN pip install requests
 
 ENV SERVICE_NAME=order_service

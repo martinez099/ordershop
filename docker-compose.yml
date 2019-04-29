@@ -6,21 +6,21 @@ services:
       - .:/app
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   crm-service:
     build: crm_service
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   customer-service:
     build: customer_service
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   gateway-api:
     build: gateway_api
     ports:
@@ -29,14 +29,14 @@ services:
       - .:/app
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   inventory-service:
     build: inventory_service
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   msg-service:
     build: msg_service
     volumes:
@@ -48,9 +48,16 @@ services:
       - .:/app
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   product-service:
     build: product_service
+    volumes:
+      - .:/app
+      - logvolume01:/var/log
+    links:
+      - event-store
+  event-store:
+    build: event_store
     volumes:
       - .:/app
       - logvolume01:/var/log

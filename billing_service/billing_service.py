@@ -7,9 +7,9 @@ from flask import Flask
 
 import requests
 
-from common.factory import create_billing
+from common.factory import create_billing, create_event
 from common.utils import log_error, log_info
-from lib.event_store import Event, EventStore
+from common.event_store import EventStore
 
 
 app = Flask(__name__)
@@ -18,7 +18,7 @@ store = EventStore()
 
 def order_created(item):
     try:
-        msg_data = json.loads(item[1][0][1]['entity'])
+        msg_data = json.loads(item.event_entity)
         customer = store.find_one('customer', msg_data['customer_id'])
         products = [store.find_one('product', product_id) for product_id in msg_data['product_ids']]
         msg = """Dear {}!
@@ -37,7 +37,7 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
 
 def billing_created(item):
     try:
-        msg_data = json.loads(item[1][0][1]['entity'])
+        msg_data = json.loads(item.event_entity)
         order = store.find_one('order', msg_data['order_id'])
         customer = store.find_one('customer', order['customer_id'])
         products = [store.find_one('product', product_id) for product_id in order['product_ids']]
@@ -104,7 +104,8 @@ def post():
             raise ValueError("missing mandatory parameter 'order_id'")
 
         # trigger event
-        store.publish(Event('billing', 'created', **new_billing))
+        event = create_event('billing', 'created', **new_billing)
+        store.publish(event)
 
         billing_ids.append(new_billing['id'])
 
@@ -123,7 +124,8 @@ def put(billing_id):
     billing['id'] = billing_id
 
     # trigger event
-    store.publish(Event('billing', 'updated', **billing))
+    event = create_event('billing', 'updated', **billing)
+    store.publish(event)
 
     return json.dumps(True)
 
@@ -135,7 +137,8 @@ def delete(billing_id):
     if billing:
 
         # trigger event
-        store.publish(Event('billing', 'deleted', **billing))
+        event = create_event('billing', 'deleted', **billing)
+        store.publish(event)
 
         return json.dumps(True)
     else:
