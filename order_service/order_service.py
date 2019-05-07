@@ -6,9 +6,9 @@ import requests
 from flask import request
 from flask import Flask
 
-from common.factory import create_order
+from common.factory import create_order, create_event
 from common.utils import check_rsp_code
-from lib.event_store import Event, EventStore
+from lib.event_store import EventStore
 
 
 app = Flask(__name__)
@@ -69,7 +69,8 @@ def post():
             raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
         # trigger event
-        store.publish(Event('order', 'created', **new_order))
+        event = create_event('order', 'created', **new_order)
+        store.publish(event)
 
         order_ids.append(new_order['id'])
 
@@ -99,7 +100,8 @@ def put(order_id):
     order['id'] = order_id
 
     # trigger event
-    store.publish(Event('order', 'updated', **order))
+    event = create_event('order', 'updated', **order)
+    store.publish(event)
 
     for product_id in value['product_ids']:
         rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))
@@ -118,7 +120,8 @@ def delete(order_id):
             check_rsp_code(rsp)
 
         # trigger event
-        store.publish(Event('order', 'deleted', **order))
+        event = create_event('order', 'deleted', **order)
+        store.publish(event)
 
         return json.dumps(True)
     else:

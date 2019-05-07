@@ -5,8 +5,8 @@ import os
 from flask import request
 from flask import Flask
 
-from common.factory import create_customer
-from lib.event_store import Event, EventStore
+from common.factory import create_customer, create_event
+from lib.event_store import EventStore
 
 
 app = Flask(__name__)
@@ -47,7 +47,8 @@ def post():
             raise ValueError("missing mandatory parameter 'name' and/or 'email'")
 
         # trigger event
-        store.publish(Event('customer', 'created', **new_customer))
+        event = create_event('customer', 'created', **new_customer)
+        store.publish(event)
 
         customer_ids.append(new_customer['id'])
 
@@ -66,7 +67,8 @@ def put(customer_id):
     customer['id'] = customer_id
 
     # trigger event
-    store.publish(Event('customer', 'updated', **customer))
+    event = create_event('customer', 'updated', **customer)
+    store.publish(event)
 
     return json.dumps(True)
 
@@ -78,7 +80,8 @@ def delete(customer_id):
     if customer:
 
         # trigger event
-        store.publish(Event('customer', 'deleted', **customer))
+        event = create_event('customer', 'deleted', **customer)
+        store.publish(event)
 
         return json.dumps(True)
     else:

@@ -5,8 +5,8 @@ import os
 from flask import request
 from flask import Flask
 
-from common.factory import create_product
-from lib.event_store import Event, EventStore
+from common.factory import create_product, create_event
+from lib.event_store import EventStore
 
 
 app = Flask(__name__)
@@ -48,7 +48,8 @@ def post():
             raise ValueError("missing mandatory parameter 'name' and/or 'price'")
 
         # trigger event
-        store.publish(Event('product', 'created', **new_product))
+        event = create_event('product', 'created', **new_product)
+        store.publish(event)
 
         product_ids.append(new_product['id'])
 
@@ -67,7 +68,8 @@ def put(product_id):
     product['id'] = product_id
 
     # trigger event
-    store.publish(Event('product', 'updated', **product))
+    event = create_event('product', 'updated', **product)
+    store.publish(event)
 
     return json.dumps(True)
 
@@ -79,7 +81,8 @@ def delete(product_id):
     if product:
 
         # trigger event
-        store.publish(Event('product', 'deleted', **product))
+        event = create_event('product', 'deleted', **product)
+        store.publish(event)
 
         return json.dumps(True)
     else:

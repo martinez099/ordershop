@@ -2,29 +2,10 @@ import functools
 import json
 import threading
 import time
-import uuid
 
 from redis import StrictRedis
 
 from lib.domain_model import DomainModel
-
-
-class Event(object):
-    """
-    Event class.
-    """
-
-    def __init__(self, _topic, _action, **_entity):
-        """
-        :param _topic: The event topic.
-        :param _action: The event action.
-        :param _entity: The event entity.
-        """
-        self.id = str(uuid.uuid4())
-        self.ts = time.time()
-        self.topic = _topic
-        self.action = _action
-        self.entity = _entity
 
 
 class EventStore(object):
@@ -42,13 +23,15 @@ class EventStore(object):
         Publish an event.
 
         :param _event: The event to publish.
-        :return: Success.
+        :return: The entry ID.
         """
-        key = 'events:{{{0}}}_{1}'.format(_event.topic, _event.action)
-        entity = json.dumps(_event.entity)
-        entry_id = '{0:.6f}'.format(_event.ts).replace('.', '-')
+        key = 'events:{{{0}}}_{1}'.format(_event['topic'], _event['action'])
+        entry_id = '{0:.6f}'.format(time.time()).replace('.', '-')
 
-        return self.redis.xadd(key, {'event_id': _event.id, 'entity': entity}, id=entry_id)
+        return self.redis.xadd(key, {
+            'event_id': _event['id'],
+            'entity': json.dumps(_event['entity'])
+        }, id=entry_id)
 
     def subscribe(self, _topic, _action, _handler):
         """

@@ -74,3 +74,20 @@ def create_product(_name, _price):
         'name': _name,
         'price': _price
     }
+
+
+def create_event(_topic, _action, **_entity):
+    """
+    Create a domain event.
+
+    :param _topic:
+    :param _action:
+    :param _entity:
+    :return:
+    """
+    return {
+        'id': str(uuid.uuid4()),
+        'topic': _topic,
+        'action': _action,
+        'entity': _entity
+    }
