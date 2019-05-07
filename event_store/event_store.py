@@ -142,8 +142,13 @@ class EventStore(EventStoreServicer):
         :param _topic: The event topic, i.e name of entity.
         :return: A dict mapping id -> entity.
         """
+
+        def _get_entities(_events):
+            entities = map(lambda x: json.loads(x[1]['entity']), _events)
+            return dict(map(lambda x: (x['id'], x), entities))
+
         def _remove_deleted(_created, _deleted):
-            for d in _deleted:
+            for d in _deleted.values():
                 del _created[d]
             return _created
 
@@ -156,6 +161,9 @@ class EventStore(EventStoreServicer):
         if self.domain_model.exists(_topic):
             return self.domain_model.retrieve(_topic)
 
+        # result is a dict mapping id -> entity
+        result = {}
+
         # read all events at once
         with self.redis.pipeline() as pipe:
             pipe.multi()
@@ -164,25 +172,17 @@ class EventStore(EventStoreServicer):
             pipe.xrange('events:{{{0}}}_updated'.format(_topic))
             created_events, deleted_events, updated_events = pipe.execute()
 
-        # result is a dict mapping id -> entity
-        result = {}
-
         # get created entities
         if created_events:
-            created_entities = map(lambda x: json.loads(x[1]['event_entity']), created_events)
-            result = dict(map(lambda x: (x['id'], x), created_entities))
+            result = _get_entities(created_events)
 
         # remove deleted entities
         if deleted_events:
-            deleted_entities = map(lambda x: json.loads(x[1]['event_entity']), deleted_events)
-            deleted_entities = map(lambda x: x['id'], deleted_entities)
-            result = _remove_deleted(result, deleted_entities)
+            result = _remove_deleted(result, _get_entities(deleted_events))
 
         # set updated entities
         if updated_events:
-            updated_entities = map(lambda x: json.loads(x[1]['event_entity']), updated_events)
-            updated_entities = dict(map(lambda x: (x['id'], x), updated_entities))
-            result = _set_updated(result, updated_entities)
+            result = _set_updated(result, _get_entities(updated_events))
 
         # write into cache
         for value in result.values():
