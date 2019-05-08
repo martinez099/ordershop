@@ -142,9 +142,8 @@ class EventStore(EventStoreServicer):
         :param _topic: The event topic, i.e name of entity.
         :return: A dict mapping id -> entity.
         """
-
         def _get_entities(_events):
-            entities = map(lambda x: json.loads(x[1]['entity']), _events)
+            entities = map(lambda x: json.loads(x[1]['event_entity']), _events)
             return dict(map(lambda x: (x['id'], x), entities))
 
         def _remove_deleted(_created, _deleted):

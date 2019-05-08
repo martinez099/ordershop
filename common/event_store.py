@@ -1,5 +1,6 @@
 import json
 import threading
+import uuid
 
 import grpc
 
@@ -24,18 +25,20 @@ class EventStore(object):
     def __del__(self):
         self.channel.close()
 
-    def publish(self, _event):
+    def publish(self, _topic, _action, **_entity):
         """
         Publish an event.
 
-        :param _event: The event to publish.
+        :param _topic: The event topic.
+        :param _action: The event action.
+        :param _entity: The event entity.
         :return: The entry ID.
         """
         request = PublishRequest(
-            event_id=_event['id'],
-            event_topic=_event['topic'],
-            event_action=_event['action'],
-            event_entity=json.dumps(_event['entity'])
+            event_id=str(uuid.uuid4()),
+            event_topic=_topic,
+            event_action=_action,
+            event_entity=json.dumps(_entity)
         )
         response = self.stub.publish(request)
         return response.entry_id
