@@ -1,16 +1,31 @@
 import atexit
 import json
 import os
+import uuid
 
 from flask import request
 from flask import Flask
 
-from common.factory import create_inventory, create_event
 from lib.event_store import EventStore
 
 
 app = Flask(__name__)
 store = EventStore()
+
+
+def create_inventory(_product_id, _amount):
+    """
+    Create an inventory entity.
+
+    :param _product_id: The product ID the inventory is for.
+    :param _amount: The amount of products in the inventory.
+    :return: A dict with the entity properties.
+    """
+    return {
+        'id': str(uuid.uuid4()),
+        'product_id': _product_id,
+        'amount': _amount
+    }
 
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
@@ -47,8 +62,7 @@ def post():
             raise ValueError("missing mandatory parameter 'product_id' and/or 'amount'")
 
         # trigger event
-        event = create_event('inventory', 'created', **new_inventory)
-        store.publish(event)
+        store.publish('inventory', 'created', **new_inventory)
 
         inventory_ids.append(new_inventory['id'])
 
@@ -67,8 +81,7 @@ def put(inventory_id):
     inventory['id'] = inventory_id
 
     # trigger event
-    event = create_event('inventory', 'updated', **inventory)
-    store.publish(event)
+    store.publish('inventory', 'updated', **inventory)
 
     return json.dumps(True)
 
@@ -80,8 +93,7 @@ def delete(inventory_id):
     if inventory:
 
         # trigger event
-        event = create_event('inventory', 'deleted', **inventory)
-        store.publish(event)
+        store.publish('inventory', 'deleted', **inventory)
 
         return json.dumps(True)
     else:
@@ -100,8 +112,7 @@ def incr(product_id, value=None):
     inventory['amount'] = int(inventory['amount']) - (value if value else 1)
 
     # trigger event
-    event = create_event('inventory', 'updated', **inventory)
-    store.publish(event)
+    store.publish('inventory', 'updated', **inventory)
 
     return json.dumps(True)
 
@@ -120,8 +131,7 @@ def decr(product_id, value=None):
         inventory['amount'] = int(inventory['amount']) - (value if value else 1)
 
         # trigger event
-        event = create_event('inventory', 'updated', **inventory)
-        store.publish(event)
+        store.publish('inventory', 'updated', **inventory)
 
         return json.dumps(True)
     else:
@@ -164,8 +174,7 @@ def decr_from_order():
             inventory['amount'] = int(inventory['amount']) - v
 
             # trigger event
-            event = create_event('inventory', 'updated', **inventory)
-            store.publish(event)
+            store.publish('inventory', 'updated', **inventory)
 
         else:
             return json.dumps(False)

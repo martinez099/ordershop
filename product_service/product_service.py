@@ -1,16 +1,31 @@
 import atexit
 import json
 import os
+import uuid
 
 from flask import request
 from flask import Flask
 
-from common.factory import create_product, create_event
 from lib.event_store import EventStore
 
 
 app = Flask(__name__)
 store = EventStore()
+
+
+def create_product(_name, _price):
+    """
+    Create a product entity.
+
+    :param _name: The name of the product.
+    :param _price: The price of the product.
+    :return: A dict with the entity properties.
+    """
+    return {
+        'id': str(uuid.uuid4()),
+        'name': _name,
+        'price': _price
+    }
 
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
@@ -48,8 +63,7 @@ def post():
             raise ValueError("missing mandatory parameter 'name' and/or 'price'")
 
         # trigger event
-        event = create_event('product', 'created', **new_product)
-        store.publish(event)
+        store.publish('product', 'created', **new_product)
 
         product_ids.append(new_product['id'])
 
@@ -68,8 +82,7 @@ def put(product_id):
     product['id'] = product_id
 
     # trigger event
-    event = create_event('product', 'updated', **product)
-    store.publish(event)
+    store.publish('product', 'updated', **product)
 
     return json.dumps(True)
 
@@ -81,8 +94,7 @@ def delete(product_id):
     if product:
 
         # trigger event
-        event = create_event('product', 'deleted', **product)
-        store.publish(event)
+        store.publish('product', 'deleted', **product)
 
         return json.dumps(True)
     else:

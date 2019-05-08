@@ -1,19 +1,34 @@
 import atexit
 import json
 import os
+import uuid
+import time
 
 from flask import request
 from flask import Flask
 
 import requests
 
-from common.factory import create_billing, create_event
 from common.utils import log_error, log_info
 from lib.event_store import EventStore
 
 
 app = Flask(__name__)
 store = EventStore()
+
+
+def create_billing(_order_id):
+    """
+    Create a billing entity.
+
+    :param _order_id: The order ID the billing belongs to.
+    :return: A dict with the entity properties.
+    """
+    return {
+        'id': str(uuid.uuid4()),
+        'order_id': _order_id,
+        'done': time.time()
+    }
 
 
 def order_created(item):
@@ -104,8 +119,7 @@ def post():
             raise ValueError("missing mandatory parameter 'order_id'")
 
         # trigger event
-        event = create_event('billing', 'created', **new_billing)
-        store.publish(event)
+        store.publish('billing', 'created', **new_billing)
 
         billing_ids.append(new_billing['id'])
 
@@ -124,8 +138,7 @@ def put(billing_id):
     billing['id'] = billing_id
 
     # trigger event
-    event = create_event('billing', 'updated', **billing)
-    store.publish(event)
+    store.publish('billing', 'updated', **billing)
 
     return json.dumps(True)
 
@@ -137,8 +150,7 @@ def delete(billing_id):
     if billing:
 
         # trigger event
-        event = create_event('billing', 'deleted', **billing)
-        store.publish(event)
+        store.publish('billing', 'deleted', **billing)
 
         return json.dumps(True)
     else:

@@ -2,17 +2,32 @@ import atexit
 import json
 import os
 import requests
+import uuid
 
 from flask import request
 from flask import Flask
 
-from common.factory import create_order, create_event
 from common.utils import check_rsp_code
 from lib.event_store import EventStore
 
 
 app = Flask(__name__)
 store = EventStore()
+
+
+def create_order(_product_ids, _customer_id):
+    """
+    Create an order entity.
+
+    :param _product_ids: The product IDs the order is for.
+    :param _customer_id: The customer ID the order is made by.
+    :return: A dict with the entity properties.
+    """
+    return {
+        'id': str(uuid.uuid4()),
+        'product_ids': _product_ids,
+        'customer_id': _customer_id
+    }
 
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
@@ -69,8 +84,7 @@ def post():
             raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
         # trigger event
-        event = create_event('order', 'created', **new_order)
-        store.publish(event)
+        store.publish('order', 'created', **new_order)
 
         order_ids.append(new_order['id'])
 
@@ -100,8 +114,7 @@ def put(order_id):
     order['id'] = order_id
 
     # trigger event
-    event = create_event('order', 'updated', **order)
-    store.publish(event)
+    store.publish('order', 'updated', **order)
 
     for product_id in value['product_ids']:
         rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))
@@ -120,8 +133,7 @@ def delete(order_id):
             check_rsp_code(rsp)
 
         # trigger event
-        event = create_event('order', 'deleted', **order)
-        store.publish(event)
+        store.publish('order', 'deleted', **order)
 
         return json.dumps(True)
     else:

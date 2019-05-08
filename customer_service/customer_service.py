@@ -1,16 +1,32 @@
 import atexit
 import json
 import os
+import uuid
 
 from flask import request
 from flask import Flask
 
-from common.factory import create_customer, create_event
 from lib.event_store import EventStore
 
 
 app = Flask(__name__)
 store = EventStore()
+
+
+def create_customer(_name, _email):
+    """
+    Create a customer entity.
+
+    :param _name: The name of the customer.
+    :param _email: The email address of the customer.
+    :return: A dict with the entity properties.
+    """
+    return {
+        'id': str(uuid.uuid4()),
+        'name': _name,
+        'email': _email
+    }
+
 
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
     store.activate_entity_cache('customer')
@@ -47,8 +63,7 @@ def post():
             raise ValueError("missing mandatory parameter 'name' and/or 'email'")
 
         # trigger event
-        event = create_event('customer', 'created', **new_customer)
-        store.publish(event)
+        store.publish('customer', 'created', **new_customer)
 
         customer_ids.append(new_customer['id'])
 
@@ -67,8 +82,7 @@ def put(customer_id):
     customer['id'] = customer_id
 
     # trigger event
-    event = create_event('customer', 'updated', **customer)
-    store.publish(event)
+    store.publish('customer', 'updated', **customer)
 
     return json.dumps(True)
 
@@ -80,8 +94,7 @@ def delete(customer_id):
     if customer:
 
         # trigger event
-        event = create_event('customer', 'deleted', **customer)
-        store.publish(event)
+        store.publish('customer', 'deleted', **customer)
 
         return json.dumps(True)
     else:
