@@ -10,4 +10,6 @@ ENV PYTHONPATH /app
 
 EXPOSE 50051
 
-CMD [ "python", "/app/event_store/event_store.py" ]
+RUN git clone --recurse-submodules https://github.com/martinez099/eventstore.git /app
+
+CMD [ "python", "/app/event_store_server.py" ]

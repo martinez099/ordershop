@@ -8,7 +8,7 @@ from flask import request
 from flask import Flask
 
 from common.utils import check_rsp_code
-from common.event_store import EventStore
+from event_store.event_store_client import EventStore
 
 
 app = Flask(__name__)

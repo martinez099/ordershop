@@ -4,7 +4,7 @@ import json
 import requests
 
 from common.utils import log_info, log_error
-from common.event_store import EventStore
+from event_store.event_store_client import EventStore
 
 
 store = EventStore()

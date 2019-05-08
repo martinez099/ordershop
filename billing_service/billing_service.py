@@ -10,7 +10,7 @@ from flask import Flask
 import requests
 
 from common.utils import log_error, log_info
-from common.event_store import EventStore
+from event_store.event_store_client import EventStore
 
 
 app = Flask(__name__)
