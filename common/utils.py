@@ -3,12 +3,11 @@ import traceback
 
 
 def log_info(_msg):
-    print('INFO: {}'.format(_msg))
-    sys.stdout.flush()
+    print('INFO: {}'.format(_msg), file=sys.stdout, flush=True)
 
 
 def log_error(_err):
-    print('ERROR: {}'.format(str(_err)))
+    print('ERROR: {}'.format(str(_err)), file=sys.stderr)
     traceback.print_exc()
     sys.stderr.flush()
 
