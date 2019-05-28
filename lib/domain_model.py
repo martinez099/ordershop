@@ -34,11 +34,11 @@ class DomainModel(object):
                 self.redis.hset('{}_entity:{}'.format(_topic, _values['id']), k, lid)
                 self.redis.rpush(lid, *v)
             elif isinstance(v, set):
-                sid = '{}_{}:{}.'.format(_topic, k, _values['id'])
+                sid = '{}_{}:{}'.format(_topic, k, _values['id'])
                 self.redis.hset('{}_entity:{}'.format(_topic, _values['id']), k, sid)
                 self.redis.sadd(sid, *v)
             elif isinstance(v, dict):
-                did = '{}_{}:{}.'.format(_topic, k, _values['id'])
+                did = '{}_{}:{}'.format(_topic, k, _values['id'])
                 self.redis.hset('{}_entity:{}'.format(_topic, _values['id']), k, did)
                 self.redis.hmset(did, v)
             else:
