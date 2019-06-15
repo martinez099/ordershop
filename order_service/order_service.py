@@ -84,7 +84,7 @@ def post():
             raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
         # trigger event
-        store.publish('order', 'created', **new_order)
+        store.publish(Event('order', 'created', **new_order))
 
         order_ids.append(new_order['id'])
 
@@ -114,7 +114,7 @@ def put(order_id):
     order['id'] = order_id
 
     # trigger event
-    store.publish('order', 'updated', **order)
+    store.publish(Event('order', 'updated', **order))
 
     for product_id in value['product_ids']:
         rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))
@@ -133,7 +133,7 @@ def delete(order_id):
             check_rsp_code(rsp)
 
         # trigger event
-        store.publish('order', 'deleted', **order)
+        store.publish(Event('order', 'deleted', **order))
 
         return json.dumps(True)
     else:
