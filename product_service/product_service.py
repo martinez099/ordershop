@@ -6,7 +6,7 @@ import uuid
 from flask import request
 from flask import Flask
 
-from lib.event_store import EventStore
+from event_store.event_store_client import EventStore
 
 
 app = Flask(__name__)

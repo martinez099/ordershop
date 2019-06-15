@@ -3,56 +3,70 @@ services:
   billing-service:
     build: billing_service
     volumes:
-      - .:/app
+      - ./billing_service:/app/billing_service
+      - ./common:/app/common
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   crm-service:
     build: crm_service
     volumes:
-      - .:/app
+      - ./crm_service:/app/crm_service
+      - ./common:/app/common
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   customer-service:
     build: customer_service
     volumes:
-      - .:/app
+      - ./customer_service:/app/customer_service
+      - ./common:/app/common
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   gateway-api:
     build: gateway_api
     ports:
       - "5000:5000"
     volumes:
-      - .:/app
+      - ./gateway_api:/app/gateway_api
+      - ./common:/app/common
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   inventory-service:
     build: inventory_service
     volumes:
-      - .:/app
+      - ./inventory_service:/app/inventory_service
+      - ./common:/app/common
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   msg-service:
     build: msg_service
     volumes:
-      - .:/app
+      - ./msg_service:/app/msg_service
+      - ./common:/app/common
       - logvolume01:/var/log
   order-service:
     build: order_service
     volumes:
-      - .:/app
+      - ./order_service:/app/order_service
+      - ./common:/app/common
       - logvolume01:/var/log
     links:
-      - redis
+      - event-store
   product-service:
     build: product_service
     volumes:
-      - .:/app
+      - ./product_service:/app/product_service
+      - ./common:/app/common
+      - logvolume01:/var/log
+    links:
+      - event-store
+  event-store:
+    build: event_store
+    volumes:
       - logvolume01:/var/log
     links:
       - redis

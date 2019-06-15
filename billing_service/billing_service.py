@@ -1,8 +1,8 @@
 import atexit
 import json
 import os
-import uuid
 import time
+import uuid
 
 from flask import request
 from flask import Flask
@@ -10,7 +10,7 @@ from flask import Flask
 import requests
 
 from common.utils import log_error, log_info
-from lib.event_store import EventStore
+from event_store.event_store_client import EventStore
 
 
 app = Flask(__name__)
@@ -33,7 +33,7 @@ def create_billing(_order_id):
 
 def order_created(item):
     try:
-        msg_data = json.loads(item[1][0][1]['entity'])
+        msg_data = json.loads(item.event_entity)
         customer = store.find_one('customer', msg_data['customer_id'])
         products = [store.find_one('product', product_id) for product_id in msg_data['product_ids']]
         msg = """Dear {}!
@@ -52,7 +52,7 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
 
 def billing_created(item):
     try:
-        msg_data = json.loads(item[1][0][1]['entity'])
+        msg_data = json.loads(item.event_entity)
         order = store.find_one('order', msg_data['order_id'])
         customer = store.find_one('customer', order['customer_id'])
         products = [store.find_one('product', product_id) for product_id in order['product_ids']]

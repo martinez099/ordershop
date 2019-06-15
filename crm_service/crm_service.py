@@ -4,7 +4,7 @@ import json
 import requests
 
 from common.utils import log_info, log_error
-from lib.event_store import EventStore
+from event_store.event_store_client import EventStore
 
 
 store = EventStore()
@@ -12,7 +12,7 @@ store = EventStore()
 
 def customer_created(item):
     try:
-        msg_data = json.loads(item[1][0][1]['entity'])
+        msg_data = json.loads(item.event_entity)
         msg = """Dear {}!
 
 Welcome to Ordershop.
@@ -29,7 +29,7 @@ Cheers""".format(msg_data['name'])
 
 def customer_deleted(item):
     try:
-        msg_data = json.loads(item[1][0][1]['entity'])
+        msg_data = json.loads(item.event_entity)
         msg = """Dear {}!
 
 Good bye, hope to see you soon again at Ordershop.
@@ -46,7 +46,7 @@ Cheers""".format(msg_data['name'])
 
 def order_created(item):
     try:
-        msg_data = json.loads(item[1][0][1]['entity'])
+        msg_data = json.loads(item.event_entity)
         customer = store.find_one('customer', msg_data['customer_id'])
         products = [store.find_one('product', product_id) for product_id in msg_data['product_ids']]
         msg = """Dear {}!

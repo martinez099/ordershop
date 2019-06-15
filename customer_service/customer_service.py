@@ -6,7 +6,7 @@ import uuid
 from flask import request
 from flask import Flask
 
-from lib.event_store import EventStore
+from event_store.event_store_client import EventStore
 
 
 app = Flask(__name__)
@@ -18,7 +18,7 @@ def create_customer(_name, _email):
     Create a customer entity.
 
     :param _name: The name of the customer.
-    :param _email: The email address of the customer.
+    :param _email: The em2ail address of the customer.
     :return: A dict with the entity properties.
     """
     return {
