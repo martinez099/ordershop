@@ -1,3 +1,4 @@
+import json
 import sys
 import traceback
 
@@ -12,8 +13,24 @@ def log_error(_err):
     sys.stderr.flush()
 
 
-def check_rsp_code(_rsp):
-    if _rsp.status_code == 200:
-        return _rsp.text
-    else:
-        raise Exception(str(_rsp))
+def run_receiver(mq, service_name, func_name, handler_func):
+
+    running = True
+    while running:
+
+        req = mq.recv_req(service_name, func_name)
+        if not req:
+            continue
+
+        rsp = handler_func(req, mq)
+
+        mq.ack_req(service_name, func_name)
+        mq.send_rsp(service_name, func_name, rsp)
+
+
+def do_send(mq, service_name, func_name, params):
+    req_id = mq.send_req(service_name, func_name, json.dumps(params))
+    rsp = mq.recv_rsp(service_name, func_name, req_id)
+    mq.ack_rsp(service_name, func_name, rsp)
+
+    return rsp

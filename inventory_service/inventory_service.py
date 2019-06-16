@@ -1,16 +1,14 @@
 import atexit
 import json
-import os
 import uuid
 
-from flask import request
-from flask import Flask
+import gevent
+from gevent import monkey
+monkey.patch_all()
 
+from common.utils import log_error, log_info, run_receiver, do_send
 from event_store.event_store_client import EventStore
-
-
-app = Flask(__name__)
-store = EventStore()
+from message_queue.message_queue_client import MessageQueue
 
 
 def create_inventory(_product_id, _amount):
@@ -28,55 +26,55 @@ def create_inventory(_product_id, _amount):
     }
 
 
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-    store.activate_entity_cache('inventory')
-    atexit.register(store.deactivate_entity_cache, 'inventory')
+def get_inventory(req):
+
+    try:
+        billing_id = json.loads(req)['id']
+    except KeyError:
+        rsp = json.dumps([item for item in store.find_all('inventory')])
+        mq.send_rsp('inventory-service', 'get-inventory', rsp)
+        return
+
+    inventory = store.find_one('inventory', billing_id)
+    if not inventory:
+        raise ValueError("could not find inventory")
+
+    return json.dumps(inventory) if inventory else json.dumps(False)
 
 
-@app.route('/inventory', methods=['GET'])
-@app.route('/inventory/<inventory_id>', methods=['GET'])
-def get(inventory_id=None):
+def post_inventory(req):
 
-    if inventory_id:
-        inventory = store.find_one('inventory', inventory_id)
-        if not inventory:
-            raise ValueError("could not find inventory")
-
-        return json.dumps(inventory) if inventory else json.dumps(False)
-    else:
-        return json.dumps([item for item in store.find_all('inventory')])
-
-
-@app.route('/inventory', methods=['POST'])
-def post():
-
-    values = request.get_json()
-    if not isinstance(values, list):
-        values = [values]
+    inventory = json.loads(req)
+    if not isinstance(inventory, list):
+        inventory = [inventory]
 
     inventory_ids = []
-    for value in values:
+    for inventory in inventory:
         try:
-            new_inventory = create_inventory(value['product_id'], value['amount'])
+            new_billing = create_inventory(inventory['order_id'])
         except KeyError:
-            raise ValueError("missing mandatory parameter 'product_id' and/or 'amount'")
+            raise ValueError("missing mandatory parameter 'order_id'")
 
         # trigger event
-        store.publish('inventory', 'created', **new_inventory)
+        store.publish('inventory', 'created', **new_billing)
 
-        inventory_ids.append(new_inventory['id'])
+        inventory_ids.append(new_billing['id'])
 
     return json.dumps(inventory_ids)
 
 
-@app.route('/inventory/<inventory_id>', methods=['PUT'])
-def put(inventory_id):
+def put_inventory(req):
+    inventory = json.loads(req)
 
-    value = request.get_json()
     try:
-        inventory = create_inventory(value['product_id'], value['amount'])
+        inventory = create_inventory(inventory['order_id'])
     except KeyError:
-        raise ValueError("missing mandatory parameter 'name' and/or 'price'")
+        raise ValueError("missing mandatory parameter 'order_id'")
+
+    try:
+        inventory_id = inventory['id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'id'")
 
     inventory['id'] = inventory_id
 
@@ -86,23 +84,28 @@ def put(inventory_id):
     return json.dumps(True)
 
 
-@app.route('/inventory/<inventory_id>', methods=['DELETE'])
-def delete(inventory_id):
+def delete_inventory(req):
+
+    try:
+        inventory_id = json.loads(req)['id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'id'")
 
     inventory = store.find_one('inventory', inventory_id)
-    if inventory:
-
-        # trigger event
-        store.publish('inventory', 'deleted', **inventory)
-
-        return json.dumps(True)
-    else:
+    if not inventory:
         raise ValueError("could not find inventory")
 
+    # trigger event
+    store.publish('inventory', 'deleted', **inventory)
 
-@app.route('/incr/<product_id>', methods=['POST'])
-@app.route('/incr/<product_id>/<value>', methods=['POST'])
-def incr(product_id, value=None):
+    return json.dumps(True)
+
+
+def incr(req):
+    
+    params = json.loads(req)
+    product_id = params['product_id']
+    value = params.get('value')
 
     inventory = list(filter(lambda x: x['product_id'] == product_id, store.find_all('inventory')))
     if not inventory:
@@ -117,9 +120,11 @@ def incr(product_id, value=None):
     return json.dumps(True)
 
 
-@app.route('/decr/<product_id>', methods=['POST'])
-@app.route('/decr/<product_id>/<value>', methods=['POST'])
-def decr(product_id, value=None):
+def decr(req):
+    
+    params = json.loads(req)
+    product_id = params['product_id']
+    value = params.get('value')
 
     inventory = list(filter(lambda x: x['product_id'] == product_id, store.find_all('inventory')))
     if not inventory:
@@ -138,10 +143,9 @@ def decr(product_id, value=None):
         return json.dumps(False)
 
 
-@app.route('/decr_from_order', methods=['POST'])
-def decr_from_order():
+def decr_from_order(req):
 
-    values = request.get_json()
+    values = json.loads(req)
     if not isinstance(values, list):
         values = [values]
 
@@ -180,3 +184,17 @@ def decr_from_order():
             return json.dumps(False)
 
     return json.dumps(True)
+
+
+store = EventStore()
+mq = MessageQueue()
+
+store.activate_entity_cache('inventory')
+atexit.register(store.deactivate_entity_cache, 'inventory')
+
+gevent.joinall([
+    gevent.spawn(run_receiver, mq, 'inventory-service', 'get_inventory', get_inventory),
+    gevent.spawn(run_receiver, mq, 'inventory-service', 'post_inventory', post_inventory),
+    gevent.spawn(run_receiver, mq, 'inventory-service', 'put_inventory', put_inventory),
+    gevent.spawn(run_receiver, mq, 'inventory-service', 'delete_inventory', delete_inventory)
+])

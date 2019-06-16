@@ -8,6 +8,7 @@ services:
       - logvolume01:/var/log
     links:
       - event-store
+      - message-queue
   crm-service:
     build: crm_service
     volumes:
@@ -16,6 +17,7 @@ services:
       - logvolume01:/var/log
     links:
       - event-store
+      - message-queue
   customer-service:
     build: customer_service
     volumes:
@@ -24,6 +26,7 @@ services:
       - logvolume01:/var/log
     links:
       - event-store
+      - message-queue
   gateway-api:
     build: gateway_api
     ports:
@@ -34,6 +37,7 @@ services:
       - logvolume01:/var/log
     links:
       - event-store
+      - message-queue
   inventory-service:
     build: inventory_service
     volumes:
@@ -42,12 +46,15 @@ services:
       - logvolume01:/var/log
     links:
       - event-store
-  msg-service:
-    build: msg_service
+      - message-queue
+  messaging-service:
+    build: messaging_service
     volumes:
-      - ./msg_service:/app/msg_service
+      - ./messaging_service:/app/messaging_service
       - ./common:/app/common
       - logvolume01:/var/log
+    links:
+      - message-queue
   order-service:
     build: order_service
     volumes:
@@ -56,6 +63,7 @@ services:
       - logvolume01:/var/log
     links:
       - event-store
+      - message-queue
   product-service:
     build: product_service
     volumes:
@@ -64,8 +72,15 @@ services:
       - logvolume01:/var/log
     links:
       - event-store
+      - message-queue
   event-store:
     build: event_store
+    volumes:
+      - logvolume01:/var/log
+    links:
+      - redis
+  message-queue:
+    build: message_queue
     volumes:
       - logvolume01:/var/log
     links:

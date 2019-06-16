@@ -1,20 +1,15 @@
 import atexit
 import json
-import os
 import time
 import uuid
 
-from flask import request
-from flask import Flask
+import gevent
+from gevent import monkey
+monkey.patch_all()
 
-import requests
-
-from common.utils import log_error, log_info
+from common.utils import log_error, log_info, run_receiver, do_send
 from event_store.event_store_client import EventStore
-
-
-app = Flask(__name__)
-store = EventStore()
+from message_queue.message_queue_client import MessageQueue
 
 
 def create_billing(_order_id):
@@ -42,7 +37,7 @@ Please transfer € {} with your favourite payment method.
 
 Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
 
-        requests.post('http://msg-service:5000/email', json={
+        do_send('messaging-service', 'send-email', {
             "to": customer['email'],
             "msg": msg
         })
@@ -62,7 +57,7 @@ We've just received € {} from you, thank you for your transfer.
 
 Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
 
-        requests.post('http://msg-service:5000/email', json={
+        do_send('messaging-service', 'send-email', {
             "to": customer['email'],
             "msg": msg
         })
@@ -82,39 +77,32 @@ def unsubscribe_from_domain_events():
     log_info('unsubscribed from domain events')
 
 
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-    store.activate_entity_cache('billing')
-    atexit.register(store.deactivate_entity_cache, 'billing')
-    subscribe_to_domain_events()
-    atexit.register(unsubscribe_from_domain_events)
+def get_billings(req):
+
+    try:
+        billing_id = json.loads(req)['id']
+    except KeyError:
+        rsp = json.dumps([item for item in store.find_all('billing')])
+        mq.send_rsp('billing-service', 'get-billings', rsp)
+        return
+
+    billing = store.find_one('billing', billing_id)
+    if not billing:
+        raise ValueError("could not find billing")
+
+    return json.dumps(billing) if billing else json.dumps(False)
 
 
-@app.route('/billings', methods=['GET'])
-@app.route('/billing/<billing_id>', methods=['GET'])
-def get(billing_id=None):
+def post_billings(req):
 
-    if billing_id:
-        billing = store.find_one('billing', billing_id)
-        if not billing:
-            raise ValueError("could not find billing")
-
-        return json.dumps(billing) if billing else json.dumps(False)
-    else:
-        return json.dumps([item for item in store.find_all('billing')])
-
-
-@app.route('/billing', methods=['POST'])
-@app.route('/billings', methods=['POST'])
-def post():
-
-    values = request.get_json()
-    if not isinstance(values, list):
-        values = [values]
+    billings = json.loads(req)
+    if not isinstance(billings, list):
+        billings = [billings]
 
     billing_ids = []
-    for value in values:
+    for billing in billings:
         try:
-            new_billing = create_billing(value['order_id'])
+            new_billing = create_billing(billing['order_id'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'order_id'")
 
@@ -126,14 +114,19 @@ def post():
     return json.dumps(billing_ids)
 
 
-@app.route('/billing/<billing_id>', methods=['PUT'])
-def put(billing_id):
+def put_billing(req):
 
-    value = request.get_json()
+    billing = json.loads(req)
+
     try:
-        billing = create_billing(value['order_id'])
+        billing = create_billing(billing['order_id'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'order_id'")
+
+    try:
+        billing_id = billing['id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'id'")
 
     billing['id'] = billing_id
 
@@ -143,15 +136,34 @@ def put(billing_id):
     return json.dumps(True)
 
 
-@app.route('/billing/<billing_id>', methods=['DELETE'])
-def delete(billing_id):
+def delete_billing(req):
+
+    try:
+        billing_id = json.loads(req)['id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'id'")
 
     billing = store.find_one('billing', billing_id)
-    if billing:
-
-        # trigger event
-        store.publish('billing', 'deleted', **billing)
-
-        return json.dumps(True)
-    else:
+    if not billing:
         raise ValueError("could not find billing")
+
+    # trigger event
+    store.publish('billing', 'deleted', **billing)
+
+    return json.dumps(True)
+
+
+store = EventStore()
+mq = MessageQueue()
+
+store.activate_entity_cache('billing')
+atexit.register(store.deactivate_entity_cache, 'billing')
+subscribe_to_domain_events()
+atexit.register(unsubscribe_from_domain_events)
+
+gevent.joinall([
+    gevent.spawn(run_receiver, mq, 'billing-service', 'get_billings', get_billings),
+    gevent.spawn(run_receiver, mq, 'billing-service', 'post_billings', post_billings),
+    gevent.spawn(run_receiver, mq, 'billing-service', 'put_billing', put_billing),
+    gevent.spawn(run_receiver, mq, 'billing-service', 'delete_billing', delete_billing)
+])

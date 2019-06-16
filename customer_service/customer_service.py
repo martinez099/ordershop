@@ -1,16 +1,14 @@
 import atexit
 import json
-import os
 import uuid
 
-from flask import request
-from flask import Flask
+import gevent
+from gevent import monkey
+monkey.patch_all()
 
+from common.utils import log_error, log_info, run_receiver, do_send
 from event_store.event_store_client import EventStore
-
-
-app = Flask(__name__)
-store = EventStore()
+from message_queue.messasge_queue_client import MessageQueue
 
 
 def create_customer(_name, _email):
@@ -28,37 +26,32 @@ def create_customer(_name, _email):
     }
 
 
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-    store.activate_entity_cache('customer')
-    atexit.register(store.deactivate_entity_cache, 'customer')
+def get_customers(req):
+
+    try:
+        billing_id = json.loads(req)['id']
+    except KeyError:
+        rsp = json.dumps([item for item in store.find_all('customer')])
+        mq.send_rsp('customer-service', 'get-customers', rsp)
+        return
+
+    customer = store.find_one('customer', billing_id)
+    if not customer:
+        raise ValueError("could not find customer")
+
+    return json.dumps(customer) if customer else json.dumps(False)
 
 
-@app.route('/customers', methods=['GET'])
-@app.route('/customer/<customer_id>', methods=['GET'])
-def get(customer_id=None):
+def post_customers(req):
 
-    if customer_id:
-        customer = store.find_one('customer', customer_id)
-        if not customer:
-            raise ValueError("could not find customer")
-
-        return json.dumps(customer) if customer else json.dumps(False)
-    else:
-        return json.dumps([item for item in store.find_all('customer')])
-
-
-@app.route('/customer', methods=['POST'])
-@app.route('/customers', methods=['POST'])
-def post():
-
-    values = request.get_json()
-    if not isinstance(values, list):
-        values = [values]
+    customers = json.loads(req)
+    if not isinstance(customers, list):
+        customers = [customers]
 
     customer_ids = []
-    for value in values:
+    for customer in customers:
         try:
-            new_customer = create_customer(value['name'], value['email'])
+            new_customer = create_customer(customer['name'], customer['email'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'name' and/or 'email'")
 
@@ -70,14 +63,19 @@ def post():
     return json.dumps(customer_ids)
 
 
-@app.route('/customer/<customer_id>', methods=['PUT'])
-def put(customer_id):
+def put_customer(req):
 
-    value = request.get_json()
+    customer = json.loads(req)
+
     try:
-        customer = create_customer(value['name'], value['email'])
+        customer = create_customer(customer['name'], customer['email'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'name' and/or 'email'")
+    
+    try:
+        customer_id = customer['id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'id'")
 
     customer['id'] = customer_id
 
@@ -87,15 +85,32 @@ def put(customer_id):
     return json.dumps(True)
 
 
-@app.route('/customer/<customer_id>', methods=['DELETE'])
-def delete(customer_id):
+def delete_customer(req):
+
+    try:
+        customer_id = json.loads(req)['id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'id'")
 
     customer = store.find_one('customer', customer_id)
-    if customer:
-
-        # trigger event
-        store.publish('customer', 'deleted', **customer)
-
-        return json.dumps(True)
-    else:
+    if not customer:
         raise ValueError("could not find customer")
+
+    # trigger event
+    store.publish('customer', 'deleted', **customer)
+
+    return json.dumps(True)
+
+
+store = EventStore()
+mq = MessageQueue()
+
+store.activate_entity_cache('customer')
+atexit.register(store.deactivate_entity_cache, 'customer')
+
+gevent.joinall([
+    gevent.spawn(run_receiver, mq, 'customer-service', 'get_customers', get_customers),
+    gevent.spawn(run_receiver, mq, 'customer-service', 'post_customers', post_customers),
+    gevent.spawn(run_receiver, mq, 'customer-service', 'put_customer', put_customer),
+    gevent.spawn(run_receiver, mq, 'customer-service', 'delete_customer', delete_customer)
+])

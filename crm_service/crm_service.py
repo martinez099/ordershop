@@ -1,13 +1,12 @@
 import atexit
 import json
 
-import requests
-
-from common.utils import log_info, log_error
+from common.utils import log_info, log_error, do_send
 from event_store.event_store_client import EventStore
-
+from message_queue.message_queue_client import MessageQueue
 
 store = EventStore()
+mq = MessageQueue()
 
 
 def customer_created(item):
@@ -19,7 +18,7 @@ Welcome to Ordershop.
 
 Cheers""".format(msg_data['name'])
 
-        requests.post('http://msg-service:5000/email', json={
+        do_send('messaging-service', 'send-email', {
             "to": msg_data['email'],
             "msg": msg
         })
@@ -36,7 +35,7 @@ Good bye, hope to see you soon again at Ordershop.
 
 Cheers""".format(msg_data['name'])
 
-        requests.post('http://msg-service:5000/email', json={
+        do_send('messaging-service', 'send-email', {
             "to": msg_data['email'],
             "msg": msg
         })
@@ -56,7 +55,7 @@ Thank you for buying following {} products from Ordershop:
 
 Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for product in products]))
 
-        requests.post('http://msg-service:5000/email', json={
+        do_send('messaging-service', 'send-email', {
             "to": customer['email'],
             "msg": msg
         })
