@@ -3,6 +3,7 @@ import json
 from flask import request
 from flask import Flask
 
+from common.utils import send_message
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
@@ -12,7 +13,7 @@ store = EventStore()
 mq = MessageQueue()
 
 
-def proxy_command_request(service_name, func_name, add_params):
+def proxy_command_request(service_name, func_name, add_params=None):
     """
     Helper function to proxy POST, PUT and DELETE requests to the according service.
 
@@ -26,13 +27,9 @@ def proxy_command_request(service_name, func_name, add_params):
         params = json.loads(request.data)
 
     if add_params:
-        params = params.update(add_params)
+        params.update(add_params)
 
-    req_id = mq.send_req(service_name, func_name, json.dumps(params))
-    rsp = mq.recv_rsp(service_name, func_name, req_id)
-    mq.ack_rsp(service_name, func_name, rsp)
-
-    return rsp
+    return send_message(mq, service_name, func_name, params)
 
 
 @app.route('/billings', methods=['GET'])
@@ -50,19 +47,19 @@ def get_billings(billing_id=None):
 @app.route('/billings', methods=['POST'])
 def post_billings():
 
-    return proxy_command_request('billing-service', 'post-billings')
+    return proxy_command_request('billing-service', 'post_billings')
 
 
 @app.route('/billing/<billing_id>', methods=['PUT'])
 def put_billing(billing_id):
 
-    return proxy_command_request('billing-service', 'put-billing', {'billing_id': billing_id})
+    return proxy_command_request('billing-service', 'put_billing', {'id': billing_id})
 
 
 @app.route('/billing/<billing_id>', methods=['DELETE'])
 def delete_billing(billing_id):
 
-    return proxy_command_request('billing-service', 'delete-billing', {'billing_id': billing_id})
+    return proxy_command_request('billing-service', 'delete_billing', {'id': billing_id})
 
 
 @app.route('/customers', methods=['GET'])
@@ -80,19 +77,19 @@ def get_customers(customer_id=None):
 @app.route('/customers', methods=['POST'])
 def post_customers():
 
-    return proxy_command_request('customer-service', 'post-customers')
+    return proxy_command_request('customer-service', 'post_customers')
 
 
 @app.route('/customer/<customer_id>', methods=['PUT'])
 def put_customer(customer_id):
 
-    return proxy_command_request('customer-service', 'put-customer', {'customer_id': customer_id})
+    return proxy_command_request('customer-service', 'put_customer', {'id': customer_id})
 
 
 @app.route('/customer/<customer_id>', methods=['DELETE'])
 def delete_customer(customer_id):
 
-    return proxy_command_request('customer-service', 'delete-customer', {'customer_id': customer_id})
+    return proxy_command_request('customer-service', 'delete_customer', {'id': customer_id})
 
 
 @app.route('/products', methods=['GET'])
@@ -110,19 +107,19 @@ def get_products(product_id=None):
 @app.route('/products', methods=['POST'])
 def post_products():
 
-    return proxy_command_request('product-service', 'post-products')
+    return proxy_command_request('product-service', 'post_products')
 
 
 @app.route('/product/<product_id>', methods=['PUT'])
 def put_prodcut(product_id):
 
-    return proxy_command_request('product-service', 'put-product', {'product_id': product_id})
+    return proxy_command_request('product-service', 'put_product', {'id': product_id})
 
 
 @app.route('/product/<product_id>', methods=['DELETE'])
 def del_prodcut(product_id):
 
-    return proxy_command_request('product-service', 'delete-product', {'product_id': product_id})
+    return proxy_command_request('product-service', 'delete_product', {'id': product_id})
 
 
 @app.route('/inventory', methods=['GET'])
@@ -139,19 +136,19 @@ def get_inventory(inventory_id=None):
 @app.route('/inventory', methods=['POST'])
 def post_inventory():
 
-    return proxy_command_request('inventory-service', 'post-inventory')
+    return proxy_command_request('inventory-service', 'post_inventory')
 
 
 @app.route('/inventory/<inventory_id>', methods=['PUT'])
 def put_inventory(inventory_id):
 
-    return proxy_command_request('inventory-service', 'put-inventory', {'inventory_id': inventory_id})
+    return proxy_command_request('inventory-service', 'put_inventory', {'id': inventory_id})
 
 
 @app.route('/inventory/<inventory_id>', methods=['DELETE'])
 def delete_inventory(inventory_id):
 
-    return proxy_command_request('inventory-service', 'delete-inventory', {'inventory_id': inventory_id})
+    return proxy_command_request('inventory-service', 'delete_inventory', {'id': inventory_id})
 
 
 @app.route('/orders', methods=['GET'])
@@ -161,10 +158,7 @@ def get_orders(order_id=None):
 
     # handle additional query 'unbilled orders'
     if request.path.endswith('/orders/unbilled'):
-        req_id = mq.send_req('order-service', 'get-unbilled')
-        rsp = mq.recv_rsp('order-service', 'get-unbilled', req_id)
-        mq.ack_rsp('order-service', 'get-unbilled', rsp)
-        return rsp
+        return send_message(mq, 'order-service', 'get_unbilled')
     elif order_id:
         result = store.find_one('order', order_id)
     else:
@@ -176,19 +170,19 @@ def get_orders(order_id=None):
 @app.route('/orders', methods=['POST'])
 def post_orders():
 
-    return proxy_command_request('order-service', 'post-orders')
+    return proxy_command_request('order-service', 'post_orders')
 
 
 @app.route('/order/<order_id>', methods=['PUT'])
 def put_order(order_id):
 
-    return proxy_command_request('order-service', 'put-order', {'order_id': order_id})
+    return proxy_command_request('order-service', 'put_order', {'id': order_id})
 
 
 @app.route('/order/<order_id>', methods=['DELETE'])
 def delete_order(order_id):
 
-    return proxy_command_request('order-service', 'delete-order', {'order_id': order_id})
+    return proxy_command_request('order-service', 'delete_order', {'id': order_id})
 
 
 @app.route('/report', methods=['GET'])

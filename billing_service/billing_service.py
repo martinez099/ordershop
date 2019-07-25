@@ -2,12 +2,9 @@ import atexit
 import json
 import time
 import uuid
+from functools import partial
 
-import gevent
-from gevent import monkey
-monkey.patch_all()
-
-from common.utils import log_error, log_info, run_receiver, do_send
+from common.utils import log_error, log_info, create_receivers, send_message
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
@@ -26,9 +23,9 @@ def create_billing(_order_id):
     }
 
 
-def order_created(item):
+def order_created(_mq, _item):
     try:
-        msg_data = json.loads(item.event_entity)
+        msg_data = json.loads(_item.event_entity)
         customer = store.find_one('customer', msg_data['customer_id'])
         products = [store.find_one('product', product_id) for product_id in msg_data['product_ids']]
         msg = """Dear {}!
@@ -37,7 +34,7 @@ Please transfer € {} with your favourite payment method.
 
 Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
 
-        do_send('messaging-service', 'send-email', {
+        send_message(_mq, 'messaging-service', 'send_email', {
             "to": customer['email'],
             "msg": msg
         })
@@ -45,9 +42,9 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
         log_error(e)
 
 
-def billing_created(item):
+def billing_created(_mq, _item):
     try:
-        msg_data = json.loads(item.event_entity)
+        msg_data = json.loads(_item.event_entity)
         order = store.find_one('order', msg_data['order_id'])
         customer = store.find_one('customer', order['customer_id'])
         products = [store.find_one('product', product_id) for product_id in order['product_ids']]
@@ -57,7 +54,7 @@ We've just received € {} from you, thank you for your transfer.
 
 Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
 
-        do_send('messaging-service', 'send-email', {
+        send_message(_mq, 'messaging-service', 'send_email', {
             "to": customer['email'],
             "msg": msg
         })
@@ -65,22 +62,22 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
         log_error(e)
 
 
-def subscribe_to_domain_events():
-    store.subscribe('order', 'created', order_created)
-    store.subscribe('billing', 'created', billing_created)
+def subscribe_to_domain_events(_store, _mq):
+    _store.subscribe('order', 'created', partial(order_created, _mq))
+    _store.subscribe('billing', 'created', partial(billing_created, _mq))
     log_info('subscribed to domain events')
 
 
-def unsubscribe_from_domain_events():
-    store.unsubscribe('order', 'created', order_created)
-    store.unsubscribe('billing', 'created', billing_created)
+def unsubscribe_from_domain_events(_store, _mq):
+    _store.unsubscribe('order', 'created', partial(order_created, _mq))
+    _store.unsubscribe('billing', 'created', partial(billing_created, _mq))
     log_info('unsubscribed from domain events')
 
 
-def get_billings(req):
+def get_billings(_req, _mq):
 
     try:
-        billing_id = json.loads(req)['id']
+        billing_id = json.loads(_req)['id']
     except KeyError:
         rsp = json.dumps([item for item in store.find_all('billing')])
         mq.send_rsp('billing-service', 'get-billings', rsp)
@@ -93,9 +90,9 @@ def get_billings(req):
     return json.dumps(billing) if billing else json.dumps(False)
 
 
-def post_billings(req):
+def post_billings(_req, _mq):
 
-    billings = json.loads(req)
+    billings = json.loads(_req)
     if not isinstance(billings, list):
         billings = [billings]
 
@@ -114,9 +111,9 @@ def post_billings(req):
     return json.dumps(billing_ids)
 
 
-def put_billing(req):
+def put_billing(_req, _mq):
 
-    billing = json.loads(req)
+    billing = json.loads(_req)
 
     try:
         billing = create_billing(billing['order_id'])
@@ -136,10 +133,10 @@ def put_billing(req):
     return json.dumps(True)
 
 
-def delete_billing(req):
+def delete_billing(_req, _mq):
 
     try:
-        billing_id = json.loads(req)['id']
+        billing_id = json.loads(_req)['id']
     except KeyError:
         raise ValueError("missing mandatory parameter 'id'")
 
@@ -158,12 +155,14 @@ mq = MessageQueue()
 
 store.activate_entity_cache('billing')
 atexit.register(store.deactivate_entity_cache, 'billing')
-subscribe_to_domain_events()
-atexit.register(unsubscribe_from_domain_events)
+subscribe_to_domain_events(store, mq)
+atexit.register(unsubscribe_from_domain_events, store, mq)
 
-gevent.joinall([
-    gevent.spawn(run_receiver, mq, 'billing-service', 'get_billings', get_billings),
-    gevent.spawn(run_receiver, mq, 'billing-service', 'post_billings', post_billings),
-    gevent.spawn(run_receiver, mq, 'billing-service', 'put_billing', put_billing),
-    gevent.spawn(run_receiver, mq, 'billing-service', 'delete_billing', delete_billing)
-])
+threads = create_receivers(mq, 'billing-service', [get_billings, post_billings, put_billing, delete_billing])
+
+log_info('spawning servers ...')
+
+[t.start() for t in threads]
+[t.join() for t in threads]
+
+log_info('done.')

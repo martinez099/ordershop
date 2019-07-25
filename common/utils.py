@@ -1,6 +1,7 @@
 import json
 import sys
 import traceback
+import threading
 
 
 def log_info(_msg):
@@ -13,24 +14,33 @@ def log_error(_err):
     sys.stderr.flush()
 
 
+def create_receivers(mq, service_name, handler_funcs):
+    return [threading.Thread(target=run_receiver,
+                             name='{}.{}'.format(service_name, m.__name__),
+                             args=(mq, service_name, m.__name__, m)) for m in handler_funcs]
+
+
 def run_receiver(mq, service_name, func_name, handler_func):
+    log_info('running receiver for {}.{}'.format(service_name, func_name))
 
-    running = True
-    while running:
+    while True:
 
-        req = mq.recv_req(service_name, func_name)
-        if not req:
+        req_id, req_payload = mq.recv_req(service_name, func_name)
+        try:
+            rsp = handler_func(req_payload, mq)
+        except Exception as e:
+            log_error(e)
             continue
 
-        rsp = handler_func(req, mq)
-
-        mq.ack_req(service_name, func_name)
-        mq.send_rsp(service_name, func_name, rsp)
+        mq.ack_req(service_name, func_name, req_id)
+        mq.send_rsp(service_name, func_name, req_id, rsp)
 
 
-def do_send(mq, service_name, func_name, params):
+def send_message(mq, service_name, func_name, params={}):
+    log_info('sending message to {}.{}'.format(service_name, func_name))
+
     req_id = mq.send_req(service_name, func_name, json.dumps(params))
     rsp = mq.recv_rsp(service_name, func_name, req_id)
-    mq.ack_rsp(service_name, func_name, rsp)
+    mq.ack_rsp(service_name, func_name, req_id, rsp)
 
     return rsp

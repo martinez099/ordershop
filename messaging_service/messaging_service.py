@@ -1,16 +1,12 @@
 import json
 
-import gevent
-from gevent import monkey
-monkey.patch_all()
-
-from common.utils import log_info, run_receiver
+from common.utils import log_info, create_receivers
 from message_queue.message_queue_client import MessageQueue
 
 
-def send_email(req):
+def send_email(_req, _mq):
 
-    values = json.loads(req)
+    values = json.loads(_req)
     if not values['to'] or not values['msg']:
         raise ValueError("missing mandatory parameter 'to' and/or 'msg'")
 
@@ -20,6 +16,11 @@ def send_email(req):
 
 mq = MessageQueue()
 
-gevent.joinall([
-    gevent.spawn(run_receiver, mq, 'messaging-service', 'send-email', send_email),
-])
+threads = create_receivers(mq, 'messaging-service', [send_email])
+
+log_info('spawning servers ...')
+
+[t.start() for t in threads]
+[t.join() for t in threads]
+
+log_info('done.')

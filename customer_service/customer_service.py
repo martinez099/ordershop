@@ -2,13 +2,9 @@ import atexit
 import json
 import uuid
 
-import gevent
-from gevent import monkey
-monkey.patch_all()
-
-from common.utils import log_error, log_info, run_receiver, do_send
+from common.utils import log_info, create_receivers
 from event_store.event_store_client import EventStore
-from message_queue.messasge_queue_client import MessageQueue
+from message_queue.message_queue_client import MessageQueue
 
 
 def create_customer(_name, _email):
@@ -26,10 +22,10 @@ def create_customer(_name, _email):
     }
 
 
-def get_customers(req):
+def get_customers(_req, _mq):
 
     try:
-        billing_id = json.loads(req)['id']
+        billing_id = json.loads(_req)['id']
     except KeyError:
         rsp = json.dumps([item for item in store.find_all('customer')])
         mq.send_rsp('customer-service', 'get-customers', rsp)
@@ -42,9 +38,9 @@ def get_customers(req):
     return json.dumps(customer) if customer else json.dumps(False)
 
 
-def post_customers(req):
+def post_customers(_req, _mq):
 
-    customers = json.loads(req)
+    customers = json.loads(_req)
     if not isinstance(customers, list):
         customers = [customers]
 
@@ -63,9 +59,9 @@ def post_customers(req):
     return json.dumps(customer_ids)
 
 
-def put_customer(req):
+def put_customer(_req, _mq):
 
-    customer = json.loads(req)
+    customer = json.loads(_req)
 
     try:
         customer = create_customer(customer['name'], customer['email'])
@@ -85,10 +81,10 @@ def put_customer(req):
     return json.dumps(True)
 
 
-def delete_customer(req):
+def delete_customer(_req, _mq):
 
     try:
-        customer_id = json.loads(req)['id']
+        customer_id = json.loads(_req)['id']
     except KeyError:
         raise ValueError("missing mandatory parameter 'id'")
 
@@ -108,9 +104,11 @@ mq = MessageQueue()
 store.activate_entity_cache('customer')
 atexit.register(store.deactivate_entity_cache, 'customer')
 
-gevent.joinall([
-    gevent.spawn(run_receiver, mq, 'customer-service', 'get_customers', get_customers),
-    gevent.spawn(run_receiver, mq, 'customer-service', 'post_customers', post_customers),
-    gevent.spawn(run_receiver, mq, 'customer-service', 'put_customer', put_customer),
-    gevent.spawn(run_receiver, mq, 'customer-service', 'delete_customer', delete_customer)
-])
+threads = create_receivers(mq, 'customer-service', [post_customers, get_customers, put_customer, delete_customer])
+
+log_info('spawning servers ...')
+
+[t.start() for t in threads]
+[t.join() for t in threads]
+
+log_info('done.')

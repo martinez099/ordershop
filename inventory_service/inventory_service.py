@@ -2,11 +2,8 @@ import atexit
 import json
 import uuid
 
-import gevent
-from gevent import monkey
-monkey.patch_all()
 
-from common.utils import log_error, log_info, run_receiver, do_send
+from common.utils import log_info, create_receivers
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
@@ -26,10 +23,10 @@ def create_inventory(_product_id, _amount):
     }
 
 
-def get_inventory(req):
+def get_inventory(_req, _mq):
 
     try:
-        billing_id = json.loads(req)['id']
+        billing_id = json.loads(_req)['id']
     except KeyError:
         rsp = json.dumps([item for item in store.find_all('inventory')])
         mq.send_rsp('inventory-service', 'get-inventory', rsp)
@@ -42,34 +39,34 @@ def get_inventory(req):
     return json.dumps(inventory) if inventory else json.dumps(False)
 
 
-def post_inventory(req):
+def post_inventory(_req, _mq):
 
-    inventory = json.loads(req)
+    inventory = json.loads(_req)
     if not isinstance(inventory, list):
         inventory = [inventory]
 
     inventory_ids = []
     for inventory in inventory:
         try:
-            new_billing = create_inventory(inventory['order_id'])
+            new_inventory = create_inventory(inventory['product_id'], inventory['amount'])
         except KeyError:
-            raise ValueError("missing mandatory parameter 'order_id'")
+            raise ValueError("missing mandatory parameter 'product_id' and/or 'amount'")
 
         # trigger event
-        store.publish('inventory', 'created', **new_billing)
+        store.publish('inventory', 'created', **new_inventory)
 
-        inventory_ids.append(new_billing['id'])
+        inventory_ids.append(new_inventory['id'])
 
     return json.dumps(inventory_ids)
 
 
-def put_inventory(req):
-    inventory = json.loads(req)
+def put_inventory(_req, _mq):
+    inventory = json.loads(_req)
 
     try:
-        inventory = create_inventory(inventory['order_id'])
+        inventory = create_inventory(inventory['product_id'], inventory['amount'])
     except KeyError:
-        raise ValueError("missing mandatory parameter 'order_id'")
+        raise ValueError("missing mandatory parameter 'product_id' and/or 'amount'")
 
     try:
         inventory_id = inventory['id']
@@ -84,10 +81,10 @@ def put_inventory(req):
     return json.dumps(True)
 
 
-def delete_inventory(req):
+def delete_inventory(_req, _mq):
 
     try:
-        inventory_id = json.loads(req)['id']
+        inventory_id = json.loads(_req)['id']
     except KeyError:
         raise ValueError("missing mandatory parameter 'id'")
 
@@ -101,16 +98,19 @@ def delete_inventory(req):
     return json.dumps(True)
 
 
-def incr(req):
+def incr_amount(_req, _mq):
     
-    params = json.loads(req)
-    product_id = params['product_id']
-    value = params.get('value')
+    params = json.loads(_req)
+    try:
+        product_id = params['product_id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'product_id'")
 
     inventory = list(filter(lambda x: x['product_id'] == product_id, store.find_all('inventory')))
     if not inventory:
         raise ValueError("could not find inventory")
 
+    value = params.get('value')
     inventory = inventory[0]
     inventory['amount'] = int(inventory['amount']) - (value if value else 1)
 
@@ -120,16 +120,19 @@ def incr(req):
     return json.dumps(True)
 
 
-def decr(req):
+def decr_amount(_req, _mq):
     
-    params = json.loads(req)
-    product_id = params['product_id']
-    value = params.get('value')
+    params = json.loads(_req)
+    try:
+        product_id = params['product_id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'product_id'")
 
     inventory = list(filter(lambda x: x['product_id'] == product_id, store.find_all('inventory')))
     if not inventory:
         raise ValueError("could not find inventory")
 
+    value = params.get('value')
     inventory = inventory[0]
     if int(inventory['amount']) - (value if value else 1) >= 0:
 
@@ -143,9 +146,9 @@ def decr(req):
         return json.dumps(False)
 
 
-def decr_from_order(req):
+def decr_from_order(_req, _mq):
 
-    values = json.loads(req)
+    values = json.loads(_req)
     if not isinstance(values, list):
         values = [values]
 
@@ -161,6 +164,7 @@ def decr_from_order(req):
             if not inventory['product_id'] in occurs:
                 occurs[inventory['product_id']] = 0
 
+            # check amount
             occurs[inventory['product_id']] += product_ids.count(inventory['product_id'])
             if occurs[inventory['product_id']] <= int(inventory['amount']):
                 continue
@@ -192,9 +196,17 @@ mq = MessageQueue()
 store.activate_entity_cache('inventory')
 atexit.register(store.deactivate_entity_cache, 'inventory')
 
-gevent.joinall([
-    gevent.spawn(run_receiver, mq, 'inventory-service', 'get_inventory', get_inventory),
-    gevent.spawn(run_receiver, mq, 'inventory-service', 'post_inventory', post_inventory),
-    gevent.spawn(run_receiver, mq, 'inventory-service', 'put_inventory', put_inventory),
-    gevent.spawn(run_receiver, mq, 'inventory-service', 'delete_inventory', delete_inventory)
-])
+threads = create_receivers(mq, 'inventory-service', [get_inventory,
+                                                     post_inventory,
+                                                     put_inventory,
+                                                     delete_inventory,
+                                                     incr_amount,
+                                                     decr_amount,
+                                                     decr_from_order])
+
+log_info('spawning servers ...')
+
+[t.start() for t in threads]
+[t.join() for t in threads]
+
+log_info('done.')

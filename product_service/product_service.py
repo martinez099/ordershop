@@ -2,11 +2,7 @@ import atexit
 import json
 import uuid
 
-import gevent
-from gevent import monkey
-monkey.patch_all()
-
-from common.utils import log_error, log_info, run_receiver, do_send
+from common.utils import create_receivers, log_info
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
@@ -26,10 +22,10 @@ def create_product(_name, _price):
     }
 
 
-def get_products(req):
+def get_products(_req, _mq):
 
     try:
-        product_id = json.loads(req)['id']
+        product_id = json.loads(_req)['id']
     except KeyError:
         rsp = json.dumps([item for item in store.find_all('product')])
         mq.send_rsp('product-service', 'get-products', rsp)
@@ -42,16 +38,16 @@ def get_products(req):
     return json.dumps(product) if product else json.dumps(False)
 
 
-def post_products(req):
+def post_products(_req, _mq):
 
-    products = json.loads(req)
+    products = json.loads(_req)
     if not isinstance(products, list):
         products = [products]
 
     product_ids = []
     for product in products:
         try:
-            new_product = create_product(value['name'], value['price'])
+            new_product = create_product(product['name'], product['price'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'name' and/or 'price'")
 
@@ -63,8 +59,8 @@ def post_products(req):
     return json.dumps(product_ids)
 
 
-def put_product(req):
-    product = json.loads(req)
+def put_product(_req, _mq):
+    product = json.loads(_req)
 
     try:
         product = create_product(product['name'], product['price'])
@@ -84,10 +80,10 @@ def put_product(req):
     return json.dumps(True)
 
 
-def delete_product(req):
+def delete_product(_req, _mq):
 
     try:
-        product_id = json.loads(req)['id']
+        product_id = json.loads(_req)['id']
     except KeyError:
         raise ValueError("missing mandatory parameter 'id'")
 
@@ -107,9 +103,11 @@ mq = MessageQueue()
 store.activate_entity_cache('product')
 atexit.register(store.deactivate_entity_cache, 'product')
 
-gevent.joinall([
-    gevent.spawn(run_receiver, mq, 'product-service', 'get_products', get_products),
-    gevent.spawn(run_receiver, mq, 'product-service', 'post_products', post_products),
-    gevent.spawn(run_receiver, mq, 'product-service', 'put_product', put_product),
-    gevent.spawn(run_receiver, mq, 'product-service', 'delete_product', delete_product)
-])
+threads = create_receivers(mq, 'product-service', [get_products, post_products, put_product, delete_product])
+
+log_info('spawning servers ...')
+
+[t.start() for t in threads]
+[t.join() for t in threads]
+
+log_info('done.')

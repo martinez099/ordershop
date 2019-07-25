@@ -2,11 +2,7 @@ import atexit
 import json
 import uuid
 
-import gevent
-from gevent import monkey
-monkey.patch_all()
-
-from common.utils import run_receiver, do_send
+from common.utils import create_receivers, send_message, log_info
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
@@ -26,10 +22,10 @@ def create_order(_product_ids, _customer_id):
     }
 
 
-def get_orders(req):
+def get_orders(_req, _mq):
 
     try:
-        order_id = json.loads(req)['id']
+        order_id = json.loads(_req)['id']
     except KeyError:
         rsp = json.dumps([item for item in store.find_all('order')])
         mq.send_rsp('order-service', 'get-orders', rsp)
@@ -42,7 +38,7 @@ def get_orders(req):
     return json.dumps(order) if order else json.dumps(False)
 
 
-def get_unbilled(req):
+def get_unbilled(_req, _mq):
 
     billings = store.find_all('billing')
     orders = store.find_all('order')
@@ -54,14 +50,14 @@ def get_unbilled(req):
     return json.dumps([item for item in orders])
 
 
-def post_orders(req, mq):
+def post_orders(_req, _mq):
 
-    orders = json.loads(req)
+    orders = json.loads(_req)
     if not isinstance(orders, list):
         orders = [orders]
         
     # decrement inventory
-    do_send(mq, 'inventory-service', 'decr-from-order', orders)
+    send_message(mq, 'inventory-service', 'decr_from_order', orders)
 
     order_ids = []
     for order in orders:
@@ -78,36 +74,30 @@ def post_orders(req, mq):
     return json.dumps(order_ids)
 
 
-def put_order(req, mq):
-    
-    order = json.loads(req)
-    order_id = order['id']
+def put_order(_req, _mq):
+
+    order = json.loads(_req)
+    try:
+        order_id = order['id']
+    except KeyError:
+        raise ValueError("missing mandatory parameter 'id'")
 
     # increment inventory
     current_order = store.find_one('order', order_id)
     for product_id in current_order['product_ids']:
-        do_send(mq, 'inventory-service', 'incr', json.dumps({'id': product_id}))
+        send_message(_mq, 'inventory-service', 'incr_amount', {'product_id': product_id})
 
     try:
         order = create_order(order['product_ids'], order['customer_id'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
-    rsp = do_send(mq, 'inventory-service', 'decr_from_order', order)
-    
+    # decrement inventory
+    rsp = send_message(_mq, 'inventory-service', 'decr_from_order', order)
     if json.loads(rsp) is False:
         raise ValueError("out of stock")
 
-    try:
-        order_id = order['id']
-    except KeyError:
-        raise ValueError("missing mandatory parameter 'id'")
-
     order['id'] = order_id
-
-    # decrement inventory
-    for product_id in order['product_ids']:
-        do_send(mq, 'inventory-service', 'decr', {'id': product_id})
 
     # trigger event
     store.publish('order', 'updated', **order)
@@ -115,10 +105,10 @@ def put_order(req, mq):
     return json.dumps(True)
 
 
-def delete_order(req):
+def delete_order(_req, _mq):
 
     try:
-        order_id = json.loads(req)['id']
+        order_id = json.loads(_req)['id']
     except KeyError:
         raise ValueError("missing mandatory parameter 'id'")
 
@@ -127,7 +117,7 @@ def delete_order(req):
         raise ValueError("could not find order")
 
     for product_id in order['product_ids']:
-        do_send(mq, 'inventory-service', 'incr', {'id': product_id})
+        send_message(_mq, 'inventory-service', 'incr_amount', {'product_id': product_id})
       
     # trigger event
     store.publish('order', 'deleted', **order)
@@ -141,9 +131,11 @@ mq = MessageQueue()
 store.activate_entity_cache('order')
 atexit.register(store.deactivate_entity_cache, 'order')
 
-gevent.joinall([
-    gevent.spawn(run_receiver, mq, 'order-service', 'get_orders', get_orders),
-    gevent.spawn(run_receiver, mq, 'order-service', 'post_orders', post_orders),
-    gevent.spawn(run_receiver, mq, 'order-service', 'put_order', put_order),
-    gevent.spawn(run_receiver, mq, 'order-service', 'delete_order', delete_order)
-])
+threads = create_receivers(mq, 'order-service', [get_orders, get_unbilled, post_orders, put_order, delete_order])
+
+log_info('spawning receivers ...')
+
+[t.start() for t in threads]
+[t.join() for t in threads]
+
+log_info('done.')

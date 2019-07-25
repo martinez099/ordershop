@@ -1,24 +1,22 @@
 import atexit
 import json
+from functools import partial
 
-from common.utils import log_info, log_error, do_send
+from common.utils import log_info, log_error, send_message
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
-store = EventStore()
-mq = MessageQueue()
 
-
-def customer_created(item):
+def customer_created(_mq, _item):
     try:
-        msg_data = json.loads(item.event_entity)
+        msg_data = json.loads(_item.event_entity)
         msg = """Dear {}!
 
 Welcome to Ordershop.
 
 Cheers""".format(msg_data['name'])
 
-        do_send('messaging-service', 'send-email', {
+        send_message(_mq, 'messaging-service', 'send_email', {
             "to": msg_data['email'],
             "msg": msg
         })
@@ -26,16 +24,16 @@ Cheers""".format(msg_data['name'])
         log_error(e)
 
 
-def customer_deleted(item):
+def customer_deleted(_mq, _item):
     try:
-        msg_data = json.loads(item.event_entity)
+        msg_data = json.loads(_item.event_entity)
         msg = """Dear {}!
 
 Good bye, hope to see you soon again at Ordershop.
 
 Cheers""".format(msg_data['name'])
 
-        do_send('messaging-service', 'send-email', {
+        send_message(_mq, 'messaging-service', 'send_email', {
             "to": msg_data['email'],
             "msg": msg
         })
@@ -43,9 +41,9 @@ Cheers""".format(msg_data['name'])
         log_error(e)
 
 
-def order_created(item):
+def order_created(_mq, _item):
     try:
-        msg_data = json.loads(item.event_entity)
+        msg_data = json.loads(_item.event_entity)
         customer = store.find_one('customer', msg_data['customer_id'])
         products = [store.find_one('product', product_id) for product_id in msg_data['product_ids']]
         msg = """Dear {}!
@@ -55,7 +53,7 @@ Thank you for buying following {} products from Ordershop:
 
 Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for product in products]))
 
-        do_send('messaging-service', 'send-email', {
+        send_message(_mq, 'messaging-service', 'send_email', {
             "to": customer['email'],
             "msg": msg
         })
@@ -63,19 +61,22 @@ Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for
         log_error(e)
 
 
-def subscribe_to_domain_events():
-    store.subscribe('customer', 'created', customer_created)
-    store.subscribe('customer', 'deleted', customer_deleted)
-    store.subscribe('order', 'created', order_created)
+def subscribe_to_domain_events(_store, _mq):
+    _store.subscribe('customer', 'created', partial(customer_created, _mq))
+    _store.subscribe('customer', 'deleted', partial(customer_deleted, _mq))
+    _store.subscribe('order', 'created', partial(order_created, _mq))
     log_info('subscribed to domain events')
 
 
-def unsubscribe_from_domain_events():
-    store.unsubscribe('customer', 'created', customer_created)
-    store.unsubscribe('customer', 'deleted', customer_deleted)
-    store.unsubscribe('order', 'created', order_created)
+def unsubscribe_from_domain_events(_store, _mq):
+    _store.unsubscribe('customer', 'created', partial(customer_created, _mq))
+    _store.unsubscribe('customer', 'deleted', partial(customer_deleted, _mq))
+    _store.unsubscribe('order', 'created', order_created)
     log_info('unsubscribed from domain events')
 
 
-subscribe_to_domain_events()
-atexit.register(unsubscribe_from_domain_events)
+store = EventStore()
+mq = MessageQueue()
+
+subscribe_to_domain_events(store, mq)
+atexit.register(unsubscribe_from_domain_events, store, mq)

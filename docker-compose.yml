@@ -2,6 +2,9 @@ version: '3'
 services:
   billing-service:
     build: billing_service
+    environment:
+      - EVENT_STORE_HOST=event-store
+      - MESSAGE_QUEUE_HOST=message-queue
     volumes:
       - ./billing_service:/app/billing_service
       - ./common:/app/common
@@ -11,6 +14,9 @@ services:
       - message-queue
   crm-service:
     build: crm_service
+    environment:
+      - EVENT_STORE_HOST=event-store
+      - MESSAGE_QUEUE_HOST=message-queue
     volumes:
       - ./crm_service:/app/crm_service
       - ./common:/app/common
@@ -20,6 +26,9 @@ services:
       - message-queue
   customer-service:
     build: customer_service
+    environment:
+      - EVENT_STORE_HOST=event-store
+      - MESSAGE_QUEUE_HOST=message-queue
     volumes:
       - ./customer_service:/app/customer_service
       - ./common:/app/common
@@ -29,6 +38,9 @@ services:
       - message-queue
   gateway-api:
     build: gateway_api
+    environment:
+      - EVENT_STORE_HOST=event-store
+      - MESSAGE_QUEUE_HOST=message-queue
     ports:
       - "5000:5000"
     volumes:
@@ -38,8 +50,14 @@ services:
     links:
       - event-store
       - message-queue
+    ulimits:
+      nproc: 65535
+      nofile: 65535
   inventory-service:
     build: inventory_service
+    environment:
+      - EVENT_STORE_HOST=event-store
+      - MESSAGE_QUEUE_HOST=message-queue
     volumes:
       - ./inventory_service:/app/inventory_service
       - ./common:/app/common
@@ -49,6 +67,9 @@ services:
       - message-queue
   messaging-service:
     build: messaging_service
+    environment:
+      - EVENT_STORE_HOST=event-store
+      - MESSAGE_QUEUE_HOST=message-queue
     volumes:
       - ./messaging_service:/app/messaging_service
       - ./common:/app/common
@@ -57,6 +78,9 @@ services:
       - message-queue
   order-service:
     build: order_service
+    environment:
+      - EVENT_STORE_HOST=event-store
+      - MESSAGE_QUEUE_HOST=message-queue
     volumes:
       - ./order_service:/app/order_service
       - ./common:/app/common
@@ -66,6 +90,9 @@ services:
       - message-queue
   product-service:
     build: product_service
+    environment:
+      - EVENT_STORE_HOST=event-store
+      - MESSAGE_QUEUE_HOST=message-queue
     volumes:
       - ./product_service:/app/product_service
       - ./common:/app/common
@@ -75,12 +102,18 @@ services:
       - message-queue
   event-store:
     build: event_store
+    environment:
+      - EVENT_STORE_REDIS_HOST=redis
+      - EVENT_STORE_MAX_WORKERS=100
     volumes:
       - logvolume01:/var/log
     links:
       - redis
   message-queue:
     build: message_queue
+    environment:
+      - MESSAGE_QUEUE_REDIS_HOST=redis
+      - MESSAGE_QUEUE_MAX_WORKERS=100
     volumes:
       - logvolume01:/var/log
     links:
@@ -91,3 +124,4 @@ services:
       - "6379:6379"
 volumes:
   logvolume01: {}
+#networks:
