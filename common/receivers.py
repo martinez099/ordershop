@@ -10,7 +10,6 @@ class Receivers(object):
 
     def __init__(self, mq, service_name, handler_funcs):
         """
-
         :param mq: a message queue
         :param service_name: a service name
         :param handler_funcs: a list of handler functions
@@ -56,14 +55,15 @@ class Receivers(object):
 
         while self.running:
 
-            req_id, req_payload = self.mq.recv_req(self.service_name, handler_func.__name__)
-            try:
-                rsp = handler_func(req_payload)
-            except Exception as e:
-                log_error(e)
-                continue
+            req_id, req_payload = self.mq.recv_req(self.service_name, handler_func.__name__, 1)
+            if req_payload:
+                try:
+                    rsp = handler_func(req_payload)
+                except Exception as e:
+                    log_error(e)
+                    continue
 
-            self.mq.ack_req(self.service_name, handler_func.__name__, req_id)
-            self.mq.send_rsp(self.service_name, handler_func.__name__, req_id, rsp)
+                self.mq.ack_req(self.service_name, handler_func.__name__, req_id)
+                self.mq.send_rsp(self.service_name, handler_func.__name__, req_id, rsp)
 
-        log_info('receivers stopped.')
+        log_info('receiver for {}.{} stopped.'.format(self.service_name, handler_func.__name__))

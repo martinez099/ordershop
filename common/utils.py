@@ -17,7 +17,9 @@ def send_message(mq, service_name, func_name, params={}):
     log_info('sending message to {}.{}'.format(service_name, func_name))
 
     req_id = mq.send_req(service_name, func_name, json.dumps(params))
-    rsp = mq.recv_rsp(service_name, func_name, req_id)
-    mq.ack_rsp(service_name, func_name, req_id, rsp)
-
-    return rsp
+    rsp = mq.recv_rsp(service_name, func_name, req_id, 1)
+    if rsp:
+        mq.ack_rsp(service_name, func_name, req_id, rsp)
+        return rsp
+    else:
+        raise TimeoutError()
