@@ -47,12 +47,9 @@ services:
       - ./gateway_api:/app/gateway_api
       - ./common:/app/common
       - logvolume01:/var/log
-    links:
+    depends_on:
       - event-store
       - message-queue
-    ulimits:
-      nproc: 65535
-      nofile: 65535
   inventory-service:
     build: inventory_service
     environment:
@@ -62,7 +59,7 @@ services:
       - ./inventory_service:/app/inventory_service
       - ./common:/app/common
       - logvolume01:/var/log
-    links:
+    depends_on:
       - event-store
       - message-queue
   messaging-service:
@@ -74,7 +71,7 @@ services:
       - ./messaging_service:/app/messaging_service
       - ./common:/app/common
       - logvolume01:/var/log
-    links:
+    depends_on:
       - message-queue
   order-service:
     build: order_service
@@ -85,7 +82,7 @@ services:
       - ./order_service:/app/order_service
       - ./common:/app/common
       - logvolume01:/var/log
-    links:
+    depends_on:
       - event-store
       - message-queue
   product-service:
@@ -97,7 +94,7 @@ services:
       - ./product_service:/app/product_service
       - ./common:/app/common
       - logvolume01:/var/log
-    links:
+    depends_on:
       - event-store
       - message-queue
   event-store:
@@ -107,7 +104,7 @@ services:
       - EVENT_STORE_MAX_WORKERS=100
     volumes:
       - logvolume01:/var/log
-    links:
+    depends_on:
       - redis
   message-queue:
     build: message_queue
@@ -116,7 +113,7 @@ services:
       - MESSAGE_QUEUE_MAX_WORKERS=100
     volumes:
       - logvolume01:/var/log
-    links:
+    depends_on:
       - redis
   redis:
     image: redis
@@ -124,4 +121,3 @@ services:
       - "6379:6379"
 volumes:
   logvolume01: {}
-#networks:
