@@ -58,7 +58,7 @@ class Receivers(object):
 
             req_id, req_payload = self.mq.recv_req(self.service_name, handler_func.__name__)
             try:
-                rsp = handler_func(req_payload, self.mq)
+                rsp = handler_func(req_payload)
             except Exception as e:
                 log_error(e)
                 continue

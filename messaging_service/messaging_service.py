@@ -5,19 +5,31 @@ from common.receivers import Receivers
 from message_queue.message_queue_client import MessageQueue
 
 
-def send_email(_req, _mq):
+class MessagingService(object):
+    """
+    Messaging Service class.
+    """
 
-    values = json.loads(_req)
-    if not values['to'] or not values['msg']:
-        raise ValueError("missing mandatory parameter 'to' and/or 'msg'")
+    def __init__(self):
+        self.mq = MessageQueue()
+        self.rs = Receivers(self.mq, 'messaging-service', [self.send_email])
 
-    log_info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
-    return json.dumps(True)
+    def start(self):
+        self.rs.start()
+        self.rs.wait()
+
+    def stop(self):
+        self.rs.stop()
+
+    def send_email(self, _req):
+
+        values = json.loads(_req)
+        if not values['to'] or not values['msg']:
+            raise ValueError("missing mandatory parameter 'to' and/or 'msg'")
+
+        log_info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
+        return json.dumps(True)
 
 
-mq = MessageQueue()
-
-rs = Receivers(mq, 'messaging-service', [send_email])
-
-rs.start()
-rs.wait()
+m = MessagingService()
+m.start()
