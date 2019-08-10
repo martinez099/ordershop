@@ -1,6 +1,7 @@
 import json
 
-from common.utils import log_info, create_receivers
+from common.utils import log_info
+from common.receivers import Receivers
 from message_queue.message_queue_client import MessageQueue
 
 
@@ -16,11 +17,7 @@ def send_email(_req, _mq):
 
 mq = MessageQueue()
 
-threads = create_receivers(mq, 'messaging-service', [send_email])
+rs = Receivers(mq, 'messaging-service', [send_email])
 
-log_info('spawning servers ...')
-
-[t.start() for t in threads]
-[t.join() for t in threads]
-
-log_info('done.')
+rs.start()
+rs.wait()

@@ -2,7 +2,8 @@ import atexit
 import json
 import uuid
 
-from common.utils import create_receivers, send_message, log_info
+from common.utils import send_message, log_info
+from common.receivers import Receivers
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
@@ -131,11 +132,7 @@ mq = MessageQueue()
 store.activate_entity_cache('order')
 atexit.register(store.deactivate_entity_cache, 'order')
 
-threads = create_receivers(mq, 'order-service', [get_orders, get_unbilled, post_orders, put_order, delete_order])
+rs = Receivers(mq, 'order-service', [get_orders, get_unbilled, post_orders, put_order, delete_order])
 
-log_info('spawning receivers ...')
-
-[t.start() for t in threads]
-[t.join() for t in threads]
-
-log_info('done.')
+rs.start()
+rs.wait()

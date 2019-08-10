@@ -3,7 +3,8 @@ import json
 import uuid
 
 
-from common.utils import log_info, create_receivers
+from common.utils import log_info
+from common.receivers import Receivers
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
@@ -196,17 +197,13 @@ mq = MessageQueue()
 store.activate_entity_cache('inventory')
 atexit.register(store.deactivate_entity_cache, 'inventory')
 
-threads = create_receivers(mq, 'inventory-service', [get_inventory,
-                                                     post_inventory,
-                                                     put_inventory,
-                                                     delete_inventory,
-                                                     incr_amount,
-                                                     decr_amount,
-                                                     decr_from_order])
+rs = Receivers(mq, 'inventory-service', [get_inventory,
+                                         post_inventory,
+                                         put_inventory,
+                                         delete_inventory,
+                                         incr_amount,
+                                         decr_amount,
+                                         decr_from_order])
 
-log_info('spawning servers ...')
-
-[t.start() for t in threads]
-[t.join() for t in threads]
-
-log_info('done.')
+rs.start()
+rs.wait()

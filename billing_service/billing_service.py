@@ -4,7 +4,8 @@ import time
 import uuid
 from functools import partial
 
-from common.utils import log_error, log_info, create_receivers, send_message
+from common.utils import log_error, log_info, send_message
+from common.receivers import Receivers
 from event_store.event_store_client import EventStore
 from message_queue.message_queue_client import MessageQueue
 
@@ -158,11 +159,7 @@ atexit.register(store.deactivate_entity_cache, 'billing')
 subscribe_to_domain_events(store, mq)
 atexit.register(unsubscribe_from_domain_events, store, mq)
 
-threads = create_receivers(mq, 'billing-service', [get_billings, post_billings, put_billing, delete_billing])
+rs = Receivers(mq, 'billing-service', [get_billings, post_billings, put_billing, delete_billing])
 
-log_info('spawning servers ...')
-
-[t.start() for t in threads]
-[t.join() for t in threads]
-
-log_info('done.')
+rs.start()
+rs.wait()
