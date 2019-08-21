@@ -1,6 +1,19 @@
-# OrderShop
-Redis as an event store in a microservices architecture.
+# ordershop
+This shows Redis as a communication channel in a microservices architecture.
 
-Start the application by `docker-compose up`.
+## Prerequisites
 
-Then execute the client by `python3 -m unittest tests/client.py`.
+- Python 3
+- Docker 18
+
+## Start
+
+- `docker-compose up`
+
+## Test
+
+- `python3 -m unittest tests/client.py`
+
+## Stop
+
+- `docker-compose down`
