@@ -3,9 +3,7 @@ import pprint
 import random
 import string
 import unittest
-import urllib.request
-
-import redis
+from urllib import request
 
 
 BASE_URL = 'http://localhost:5000'
@@ -26,10 +24,10 @@ def http_cmd_req(_url, _data=None, _method='POST'):
             'Content-Type': 'application/json; charset=utf-8',
             'Content-Length': len(data)
         }
-        req = urllib.request.Request(_url, data=data, headers=headers, method=_method)
+        req = request.Request(_url, data=data, headers=headers, method=_method)
     else:
-        req = urllib.request.Request(_url, method=_method)
-    return urllib.request.urlopen(req)
+        req = request.Request(_url, method=_method)
+    return request.urlopen(req)
 
 
 def check_rsp(_rsp):
@@ -138,13 +136,6 @@ class OrderShopTestCase(unittest.TestCase):
     def __init__(self, method_name='runTest'):
         super(OrderShopTestCase, self).__init__(method_name)
 
-    @classmethod
-    def setUpClass(cls):
-
-        # clear state
-        r = redis.StrictRedis(decode_responses=True)
-        r.flushdb()
-
     def test_1_create_customers(self):
 
         # create customers
@@ -153,7 +144,7 @@ class OrderShopTestCase(unittest.TestCase):
         check_rsp(rsp)
 
         # check result
-        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = request.urlopen('{}/customers'.format(BASE_URL))
         rsp = check_rsp(rsp)
         self.assertEqual(len(customers), len(json.loads(rsp)))
 
@@ -165,14 +156,14 @@ class OrderShopTestCase(unittest.TestCase):
         check_rsp(rsp)
 
         # check result
-        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = request.urlopen('{}/products'.format(BASE_URL))
         rsp = check_rsp(rsp)
         self.assertEqual(len(products), len(json.loads(rsp)))
 
     def test_3_create_inventory(self):
 
         # load products
-        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = request.urlopen('{}/products'.format(BASE_URL))
         rsp = check_rsp(rsp)
         products = json.loads(rsp)
 
@@ -182,19 +173,19 @@ class OrderShopTestCase(unittest.TestCase):
         check_rsp(rsp)
 
         # check result
-        rsp = urllib.request.urlopen('{}/inventory'.format(BASE_URL))
+        rsp = request.urlopen('{}/inventory'.format(BASE_URL))
         rsp = check_rsp(rsp)
         self.assertEqual(len(inventory), len(json.loads(rsp)))
 
     def test_4_create_orders(self):
 
         # load customers
-        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = request.urlopen('{}/customers'.format(BASE_URL))
         rsp = check_rsp(rsp)
         customers = json.loads(rsp)
 
         # load products
-        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = request.urlopen('{}/products'.format(BASE_URL))
         rsp = check_rsp(rsp)
         products = json.loads(rsp)
 
@@ -207,19 +198,19 @@ class OrderShopTestCase(unittest.TestCase):
             ordered += 1
 
         # check result
-        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = request.urlopen('{}/orders'.format(BASE_URL))
         rsp = check_rsp(rsp)
         self.assertEqual(ordered, len(json.loads(rsp)))
 
     def test_5_update_second_order(self):
 
         # load orders
-        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = request.urlopen('{}/orders'.format(BASE_URL))
         rsp = check_rsp(rsp)
         orders = json.loads(rsp)
 
         # load products
-        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = request.urlopen('{}/products'.format(BASE_URL))
         rsp = check_rsp(rsp)
         products = json.loads(rsp)
 
@@ -229,7 +220,7 @@ class OrderShopTestCase(unittest.TestCase):
         check_rsp(rsp)
 
         # check result
-        rsp = urllib.request.urlopen('{}/order/{}'.format(BASE_URL, orders[1]['id']))
+        rsp = request.urlopen('{}/order/{}'.format(BASE_URL, orders[1]['id']))
         rsp = check_rsp(rsp)
         order = json.loads(rsp)
         self.assertIsNotNone(order['product_ids'][0])
@@ -238,7 +229,7 @@ class OrderShopTestCase(unittest.TestCase):
     def test_6_delete_third_order(self):
 
         # load orders
-        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = request.urlopen('{}/orders'.format(BASE_URL))
         rsp = check_rsp(rsp)
         orders = json.loads(rsp)
 
@@ -247,14 +238,14 @@ class OrderShopTestCase(unittest.TestCase):
         check_rsp(rsp)
 
         # check result
-        rsp = urllib.request.urlopen('{}/order/{}'.format(BASE_URL, orders[2]['id']))
+        rsp = request.urlopen('{}/order/{}'.format(BASE_URL, orders[2]['id']))
         rsp = check_rsp(rsp)
         self.assertIsNone(json.loads(rsp))
 
     def test_7_delete_third_customer(self):
 
         # load customers
-        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = request.urlopen('{}/customers'.format(BASE_URL))
         rsp = check_rsp(rsp)
         customers = json.loads(rsp)
 
@@ -263,14 +254,14 @@ class OrderShopTestCase(unittest.TestCase):
         check_rsp(rsp)
 
         # check result
-        rsp = urllib.request.urlopen('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
+        rsp = request.urlopen('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
         rsp = check_rsp(rsp)
         self.assertIsNone(json.loads(rsp))
 
     def test_8_perform_billing(self):
 
         # load orders
-        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = request.urlopen('{}/orders'.format(BASE_URL))
         rsp = check_rsp(rsp)
         orders = json.loads(rsp)
 
@@ -284,7 +275,7 @@ class OrderShopTestCase(unittest.TestCase):
     def test_9_get_unbilled_orders(self):
 
         # load unbilled orders
-        rsp = urllib.request.urlopen('{}/orders/unbilled'.format(BASE_URL))
+        rsp = request.urlopen('{}/orders/unbilled'.format(BASE_URL))
         rsp = check_rsp(rsp)
         unbilled = json.loads(rsp)
 
@@ -294,7 +285,7 @@ class OrderShopTestCase(unittest.TestCase):
     def test_Z_print_report(self):
 
         # load customers
-        rsp = urllib.request.urlopen('{}/report'.format(BASE_URL))
+        rsp = request.urlopen('{}/report'.format(BASE_URL))
         rsp = check_rsp(rsp)
 
         # print result

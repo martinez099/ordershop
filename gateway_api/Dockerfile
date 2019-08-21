@@ -6,6 +6,8 @@ RUN pip install flask
 
 RUN mkdir -p /app
 
+COPY gateway_api.py /app/
+
 ENV FLASK_ENV development
 ENV FLASK_APP /app/gateway_api/gateway_api.py
 ENV PYTHONPATH /app:/app/event_store:/app/message_queue

@@ -1,123 +1,95 @@
 version: '3'
 services:
   billing-service:
-    build: billing_service
+    build: "./billing_service"
+    image: billing-service:latest
     environment:
       - EVENT_STORE_HOST=event-store
       - MESSAGE_QUEUE_HOST=message-queue
-    volumes:
-      - ./billing_service:/app/billing_service
-      - ./common:/app/common
-      - logvolume01:/var/log
-    links:
+    depends_on:
       - event-store
       - message-queue
   crm-service:
-    build: crm_service
+    build: "./crm_service"
+    image: crm-service:latest
     environment:
       - EVENT_STORE_HOST=event-store
       - MESSAGE_QUEUE_HOST=message-queue
-    volumes:
-      - ./crm_service:/app/crm_service
-      - ./common:/app/common
-      - logvolume01:/var/log
-    links:
+    depends_on:
       - event-store
       - message-queue
   customer-service:
-    build: customer_service
+    build: "./customer_service"
+    image: customer-service:latest
     environment:
       - EVENT_STORE_HOST=event-store
       - MESSAGE_QUEUE_HOST=message-queue
-    volumes:
-      - ./customer_service:/app/customer_service
-      - ./common:/app/common
-      - logvolume01:/var/log
-    links:
+    depends_on:
       - event-store
       - message-queue
   gateway-api:
-    build: gateway_api
+    build: "./gateway_api"
+    image: gateway-api:latest
     environment:
       - EVENT_STORE_HOST=event-store
       - MESSAGE_QUEUE_HOST=message-queue
     ports:
       - "5000:5000"
-    volumes:
-      - ./gateway_api:/app/gateway_api
-      - ./common:/app/common
-      - logvolume01:/var/log
     depends_on:
       - event-store
       - message-queue
   inventory-service:
-    build: inventory_service
+    build: "./inventory_service"
+    image: inventory-service:latest
     environment:
       - EVENT_STORE_HOST=event-store
       - MESSAGE_QUEUE_HOST=message-queue
-    volumes:
-      - ./inventory_service:/app/inventory_service
-      - ./common:/app/common
-      - logvolume01:/var/log
     depends_on:
       - event-store
       - message-queue
   messaging-service:
-    build: messaging_service
+    build: "./messaging_service"
+    image: messaging-service:latest
     environment:
       - EVENT_STORE_HOST=event-store
       - MESSAGE_QUEUE_HOST=message-queue
-    volumes:
-      - ./messaging_service:/app/messaging_service
-      - ./common:/app/common
-      - logvolume01:/var/log
     depends_on:
       - message-queue
   order-service:
-    build: order_service
+    build: "./order_service"
+    image: order-service:latest
     environment:
       - EVENT_STORE_HOST=event-store
       - MESSAGE_QUEUE_HOST=message-queue
-    volumes:
-      - ./order_service:/app/order_service
-      - ./common:/app/common
-      - logvolume01:/var/log
     depends_on:
       - event-store
       - message-queue
   product-service:
-    build: product_service
+    build: "./product_service"
+    image: product-service:latest
     environment:
       - EVENT_STORE_HOST=event-store
       - MESSAGE_QUEUE_HOST=message-queue
-    volumes:
-      - ./product_service:/app/product_service
-      - ./common:/app/common
-      - logvolume01:/var/log
     depends_on:
       - event-store
       - message-queue
   event-store:
-    build: event_store
+    build: "./event_store"
+    image: event-store:latest
     environment:
       - EVENT_STORE_REDIS_HOST=redis
       - EVENT_STORE_MAX_WORKERS=100
-    volumes:
-      - logvolume01:/var/log
     depends_on:
       - redis
   message-queue:
-    build: message_queue
+    build: "./message_queue"
+    image: message-queue:latest
     environment:
       - MESSAGE_QUEUE_REDIS_HOST=redis
       - MESSAGE_QUEUE_MAX_WORKERS=100
-    volumes:
-      - logvolume01:/var/log
     depends_on:
       - redis
   redis:
     image: redis
     ports:
       - "6379:6379"
-volumes:
-  logvolume01: {}

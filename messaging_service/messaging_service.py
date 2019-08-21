@@ -1,8 +1,7 @@
 import json
+import logging
 
-from common.utils import log_info
-from common.receivers import Receivers
-from message_queue.message_queue_client import MessageQueue
+from message_queue.message_queue_client import MessageQueue, Receivers
 
 
 class MessagingService(object):
@@ -27,7 +26,7 @@ class MessagingService(object):
         if not values['to'] or not values['msg']:
             raise ValueError("missing mandatory parameter 'to' and/or 'msg'")
 
-        log_info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
+        logging.getLogger().info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
         return json.dumps(True)
 
 

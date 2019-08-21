@@ -2,9 +2,8 @@ import atexit
 import json
 import uuid
 
-from common.receivers import Receivers
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue
+from message_queue.message_queue_client import MessageQueue, Receivers
 
 
 class InventoryService(object):

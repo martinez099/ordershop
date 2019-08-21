@@ -1,9 +1,9 @@
 import atexit
 import json
+import logging
 
-from common.utils import log_info, log_error, send_message
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue
+from message_queue.message_queue_client import MessageQueue, send_message
 
 
 class CrmService(object):
@@ -30,7 +30,7 @@ class CrmService(object):
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            logging.getLogger().error(e)
 
     def customer_deleted(self, _item):
         try:
@@ -46,7 +46,7 @@ class CrmService(object):
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            logging.getLogger().error(e)
 
     def order_created(self, _item):
         try:
@@ -65,19 +65,19 @@ class CrmService(object):
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            logging.getLogger().error(e)
 
     def subscribe_to_domain_events(self):
         self.store.subscribe('customer', 'created', self.customer_created)
         self.store.subscribe('customer', 'deleted', self.customer_deleted)
         self.store.subscribe('order', 'created', self.order_created)
-        log_info('subscribed to domain events')
+        logging.getLogger().info('subscribed to domain events')
 
     def unsubscribe_from_domain_events(self):
         self.store.unsubscribe('customer', 'created', self.customer_created)
         self.store.unsubscribe('customer', 'deleted', self.customer_deleted)
         self.store.unsubscribe('order', 'created', self.order_created)
-        log_info('unsubscribed from domain events')
+        logging.getLogger().info('unsubscribed from domain events')
 
 
 c = CrmService()

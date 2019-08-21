@@ -1,12 +1,11 @@
 import atexit
 import json
+import logging
 import time
 import uuid
 
-from common.utils import log_error, log_info, send_message
-from common.receivers import Receivers
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue
+from message_queue.message_queue_client import MessageQueue, Receivers, send_message
 
 
 class BillingService(object):
@@ -63,7 +62,7 @@ class BillingService(object):
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            logging.getLogger().error(e)
 
     def billing_created(self, _item):
         try:
@@ -82,17 +81,17 @@ class BillingService(object):
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            logging.getLogger().error(e)
 
     def subscribe_to_domain_events(self):
         self.store.subscribe('order', 'created', self.order_created)
         self.store.subscribe('billing', 'created', self.billing_created)
-        log_info('subscribed to domain events')
+        logging.getLogger().info('subscribed to domain events')
 
     def unsubscribe_from_domain_events(self):
         self.store.unsubscribe('order', 'created', self.order_created)
         self.store.unsubscribe('billing', 'created', self.billing_created)
-        log_info('unsubscribed from domain events')
+        logging.getLogger().info('unsubscribed from domain events')
 
     def get_billings(self, _req):
 

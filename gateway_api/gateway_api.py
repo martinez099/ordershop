@@ -3,9 +3,8 @@ import json
 from flask import request
 from flask import Flask
 
-from common.utils import send_message
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue
+from message_queue.message_queue_client import MessageQueue, send_message
 
 
 app = Flask(__name__)
