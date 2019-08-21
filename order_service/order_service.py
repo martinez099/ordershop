@@ -1,21 +1,21 @@
 import atexit
 import json
+import logging
 import uuid
 
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue, Receivers, send_message
+from message_queue.message_queue_client import Receivers, send_message
 
 
 class OrderService(object):
 
     def __init__(self):
-        self.store = EventStore()
-        self.mq = MessageQueue()
-        self.rs = Receivers(self.mq, 'order-service', [self.get_orders,
-                                                       self.get_unbilled,
-                                                       self.post_orders,
-                                                       self.put_order,
-                                                       self.delete_order])
+        self.es = EventStore()
+        self.rs = Receivers('order-service', [self.get_orders,
+                                              self.get_unbilled,
+                                              self.post_orders,
+                                              self.put_order,
+                                              self.delete_order])
 
     @staticmethod
     def create_order(_product_ids, _customer_id):
@@ -33,8 +33,8 @@ class OrderService(object):
         }
 
     def start(self):
-        self.store.activate_entity_cache('order')
-        atexit.register(self.store.deactivate_entity_cache, 'order')
+        self.es.activate_entity_cache('order')
+        atexit.register(self.es.deactivate_entity_cache, 'order')
         self.rs.start()
         self.rs.wait()
 
@@ -46,10 +46,10 @@ class OrderService(object):
         try:
             order_id = json.loads(_req)['id']
         except KeyError:
-            orders = json.dumps([item for item in self.store.find_all('order')])
+            orders = json.dumps([item for item in self.es.find_all('order')])
             return json.dumps(orders)
 
-        order = self.store.find_one('order', order_id)
+        order = self.es.find_one('order', order_id)
         if not order:
             raise ValueError("could not find order")
 
@@ -57,8 +57,8 @@ class OrderService(object):
 
     def get_unbilled(self, _req):
 
-        billings = self.store.find_all('billing')
-        orders = self.store.find_all('order')
+        billings = self.es.find_all('billing')
+        orders = self.es.find_all('order')
 
         for billing in billings:
             to_remove = list(filter(lambda x: x['id'] == billing['order_id'], orders))
@@ -73,7 +73,7 @@ class OrderService(object):
             orders = [orders]
 
         # decrement inventory
-        send_message(self.mq, 'inventory-service', 'decr_from_order', orders)
+        send_message('inventory-service', 'decr_from_order', orders)
 
         order_ids = []
         for order in orders:
@@ -83,7 +83,7 @@ class OrderService(object):
                 raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
             # trigger event
-            self.store.publish('order', 'created', **new_order)
+            self.es.publish('order', 'created', **new_order)
 
             order_ids.append(new_order['id'])
 
@@ -98,9 +98,9 @@ class OrderService(object):
             raise ValueError("missing mandatory parameter 'id'")
 
         # increment inventory
-        current_order = self.store.find_one('order', order_id)
+        current_order = self.es.find_one('order', order_id)
         for product_id in current_order['product_ids']:
-            send_message(self.mq, 'inventory-service', 'incr_amount', {'product_id': product_id})
+            send_message('inventory-service', 'incr_amount', {'product_id': product_id})
 
         try:
             order = OrderService.create_order(order['product_ids'], order['customer_id'])
@@ -108,14 +108,14 @@ class OrderService(object):
             raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
         # decrement inventory
-        rsp = send_message(self.mq, 'inventory-service', 'decr_from_order', order)
+        rsp = send_message('inventory-service', 'decr_from_order', order)
         if json.loads(rsp) is False:
             raise ValueError("out of stock")
 
         order['id'] = order_id
 
         # trigger event
-        self.store.publish('order', 'updated', **order)
+        self.es.publish('order', 'updated', **order)
 
         return json.dumps(True)
 
@@ -126,18 +126,20 @@ class OrderService(object):
         except KeyError:
             raise ValueError("missing mandatory parameter 'id'")
 
-        order = self.store.find_one('order', order_id)
+        order = self.es.find_one('order', order_id)
         if not order:
             raise ValueError("could not find order")
 
         for product_id in order['product_ids']:
-            send_message(self.mq, 'inventory-service', 'incr_amount', {'product_id': product_id})
+            send_message('inventory-service', 'incr_amount', {'product_id': product_id})
 
         # trigger event
-        self.store.publish('order', 'deleted', **order)
+        self.es.publish('order', 'deleted', **order)
 
         return json.dumps(True)
 
+
+logging.basicConfig(level=logging.INFO)
 
 o = OrderService()
 o.start()

@@ -1,7 +1,7 @@
 import json
 import logging
 
-from message_queue.message_queue_client import MessageQueue, Receivers
+from message_queue.message_queue_client import Receivers
 
 
 class MessagingService(object):
@@ -10,8 +10,7 @@ class MessagingService(object):
     """
 
     def __init__(self):
-        self.mq = MessageQueue()
-        self.rs = Receivers(self.mq, 'messaging-service', [self.send_email])
+        self.rs = Receivers('messaging-service', [self.send_email])
 
     def start(self):
         self.rs.start()
@@ -26,9 +25,11 @@ class MessagingService(object):
         if not values['to'] or not values['msg']:
             raise ValueError("missing mandatory parameter 'to' and/or 'msg'")
 
-        logging.getLogger().info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
+        logging.info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
         return json.dumps(True)
 
+
+logging.basicConfig(level=logging.INFO)
 
 m = MessagingService()
 m.start()

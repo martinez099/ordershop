@@ -4,12 +4,11 @@ from flask import request
 from flask import Flask
 
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue, send_message
+from message_queue.message_queue_client import send_message
 
 
 app = Flask(__name__)
-store = EventStore()
-mq = MessageQueue()
+es = EventStore()
 
 
 def proxy_command_request(service_name, func_name, add_params=None):
@@ -28,7 +27,7 @@ def proxy_command_request(service_name, func_name, add_params=None):
     if add_params:
         params.update(add_params)
 
-    return send_message(mq, service_name, func_name, params)
+    return send_message(service_name, func_name, params)
 
 
 @app.route('/billings', methods=['GET'])
@@ -36,9 +35,9 @@ def proxy_command_request(service_name, func_name, add_params=None):
 def get_billings(billing_id=None):
 
     if billing_id:
-        result = store.find_one('billing', billing_id)
+        result = es.find_one('billing', billing_id)
     else:
-        result = store.find_all('billing')
+        result = es.find_all('billing')
     return json.dumps(result)
 
 
@@ -66,9 +65,9 @@ def delete_billing(billing_id):
 def get_customers(customer_id=None):
 
     if customer_id:
-        result = store.find_one('customer', customer_id)
+        result = es.find_one('customer', customer_id)
     else:
-        result = store.find_all('customer')
+        result = es.find_all('customer')
     return json.dumps(result)
 
 
@@ -96,9 +95,9 @@ def delete_customer(customer_id):
 def get_products(product_id=None):
 
     if product_id:
-        result = store.find_one('product', product_id)
+        result = es.find_one('product', product_id)
     else:
-        result = store.find_all('product')
+        result = es.find_all('product')
     return json.dumps(result)
 
 
@@ -126,9 +125,9 @@ def del_prodcut(product_id):
 def get_inventory(inventory_id=None):
 
     if inventory_id:
-        result = store.find_one('inventory', inventory_id)
+        result = es.find_one('inventory', inventory_id)
     else:
-        result = store.find_all('inventory')
+        result = es.find_all('inventory')
     return json.dumps(result)
 
 
@@ -157,11 +156,11 @@ def get_orders(order_id=None):
 
     # handle additional query 'unbilled orders'
     if request.path.endswith('/orders/unbilled'):
-        return send_message(mq, 'order-service', 'get_unbilled')
+        return send_message('order-service', 'get_unbilled')
     elif order_id:
-        result = store.find_one('order', order_id)
+        result = es.find_one('order', order_id)
     else:
-        result = store.find_all('order')
+        result = es.find_all('order')
     return json.dumps(result)
 
 
@@ -188,11 +187,11 @@ def delete_order(order_id):
 def report():
 
     result = {
-        "products": store.find_all('product'),
-        "inventory": store.find_all('inventory'),
-        "customers": store.find_all('customer'),
-        "orders": store.find_all('order'),
-        "billings": store.find_all('billing')
+        "products": es.find_all('product'),
+        "inventory": es.find_all('inventory'),
+        "customers": es.find_all('customer'),
+        "orders": es.find_all('order'),
+        "billings": es.find_all('billing')
     }
 
     return json.dumps(result)

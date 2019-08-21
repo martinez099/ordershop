@@ -1,9 +1,10 @@
 import atexit
 import json
+import logging
 import uuid
 
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue, Receivers
+from message_queue.message_queue_client import Receivers
 
 
 class ProductService(object):
@@ -12,12 +13,11 @@ class ProductService(object):
     """
 
     def __init__(self):
-        self.store = EventStore()
-        self.mq = MessageQueue()
-        self.rs = Receivers(self.mq, 'product-service', [self.get_products,
-                                                         self.post_products,
-                                                         self.put_product,
-                                                         self.delete_product])
+        self.es = EventStore()
+        self.rs = Receivers('product-service', [self.get_products,
+                                                self.post_products,
+                                                self.put_product,
+                                                self.delete_product])
 
     @staticmethod
     def create_product(_name, _price):
@@ -35,8 +35,8 @@ class ProductService(object):
         }
 
     def start(self):
-        self.store.activate_entity_cache('product')
-        atexit.register(self.store.deactivate_entity_cache, 'product')
+        self.es.activate_entity_cache('product')
+        atexit.register(self.es.deactivate_entity_cache, 'product')
         self.rs.start()
         self.rs.wait()
 
@@ -48,10 +48,10 @@ class ProductService(object):
         try:
             product_id = json.loads(_req)['id']
         except KeyError:
-            products = json.dumps([item for item in self.store.find_all('product')])
+            products = json.dumps([item for item in self.es.find_all('product')])
             return json.dumps(products)
 
-        product = self.store.find_one('product', product_id)
+        product = self.es.find_one('product', product_id)
         if not product:
             raise ValueError("could not find product")
 
@@ -71,7 +71,7 @@ class ProductService(object):
                 raise ValueError("missing mandatory parameter 'name' and/or 'price'")
 
             # trigger event
-            self.store.publish('product', 'created', **new_product)
+            self.es.publish('product', 'created', **new_product)
 
             product_ids.append(new_product['id'])
 
@@ -93,7 +93,7 @@ class ProductService(object):
         product['id'] = product_id
 
         # trigger event
-        self.store.publish('product', 'updated', **product)
+        self.es.publish('product', 'updated', **product)
 
         return json.dumps(True)
 
@@ -104,15 +104,17 @@ class ProductService(object):
         except KeyError:
             raise ValueError("missing mandatory parameter 'id'")
 
-        product = self.store.find_one('product', product_id)
+        product = self.es.find_one('product', product_id)
         if not product:
             raise ValueError("could not find product")
 
         # trigger event
-        self.store.publish('product', 'deleted', **product)
+        self.es.publish('product', 'deleted', **product)
 
         return json.dumps(True)
 
+
+logging.basicConfig(level=logging.INFO)
 
 p = ProductService()
 p.start()

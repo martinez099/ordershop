@@ -5,7 +5,7 @@ import time
 import uuid
 
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue, Receivers, send_message
+from message_queue.message_queue_client import Receivers, send_message
 
 
 class BillingService(object):
@@ -14,12 +14,11 @@ class BillingService(object):
     """
 
     def __init__(self):
-        self.store = EventStore()
-        self.mq = MessageQueue()
-        self.rs = Receivers(self.mq, 'billing-service', [self.get_billings,
-                                                         self.post_billings,
-                                                         self.put_billing,
-                                                         self.delete_billing])
+        self.es = EventStore()
+        self.rs = Receivers('billing-service', [self.get_billings,
+                                                self.post_billings,
+                                                self.put_billing,
+                                                self.delete_billing])
 
     @staticmethod
     def create_billing(_order_id):
@@ -36,8 +35,8 @@ class BillingService(object):
         }
 
     def start(self):
-        self.store.activate_entity_cache('billing')
-        atexit.register(self.store.deactivate_entity_cache, 'billing')
+        self.es.activate_entity_cache('billing')
+        atexit.register(self.es.deactivate_entity_cache, 'billing')
         self.subscribe_to_domain_events()
         atexit.register(self.unsubscribe_from_domain_events)
         self.rs.start()
@@ -49,59 +48,59 @@ class BillingService(object):
     def order_created(self, _item):
         try:
             msg_data = json.loads(_item.event_entity)
-            customer = self.store.find_one('customer', msg_data['customer_id'])
-            products = [self.store.find_one('product', product_id) for product_id in msg_data['product_ids']]
+            customer = self.es.find_one('customer', msg_data['customer_id'])
+            products = [self.es.find_one('product', product_id) for product_id in msg_data['product_ids']]
             msg = """Dear {}!
     
     Please transfer € {} with your favourite payment method.
     
     Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
 
-            send_message(self.mq, 'messaging-service', 'send_email', {
+            send_message('messaging-service', 'send_email', {
                 "to": customer['email'],
                 "msg": msg
             })
         except Exception as e:
-            logging.getLogger().error(e)
+            logging.error(e)
 
     def billing_created(self, _item):
         try:
             msg_data = json.loads(_item.event_entity)
-            order = self.store.find_one('order', msg_data['order_id'])
-            customer = self.store.find_one('customer', order['customer_id'])
-            products = [self.store.find_one('product', product_id) for product_id in order['product_ids']]
+            order = self.es.find_one('order', msg_data['order_id'])
+            customer = self.es.find_one('customer', order['customer_id'])
+            products = [self.es.find_one('product', product_id) for product_id in order['product_ids']]
             msg = """Dear {}!
     
     We've just received € {} from you, thank you for your transfer.
     
     Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
 
-            send_message(self.mq, 'messaging-service', 'send_email', {
+            send_message('messaging-service', 'send_email', {
                 "to": customer['email'],
                 "msg": msg
             })
         except Exception as e:
-            logging.getLogger().error(e)
+            logging.error(e)
 
     def subscribe_to_domain_events(self):
-        self.store.subscribe('order', 'created', self.order_created)
-        self.store.subscribe('billing', 'created', self.billing_created)
-        logging.getLogger().info('subscribed to domain events')
+        self.es.subscribe('order', 'created', self.order_created)
+        self.es.subscribe('billing', 'created', self.billing_created)
+        logging.info('subscribed to domain events')
 
     def unsubscribe_from_domain_events(self):
-        self.store.unsubscribe('order', 'created', self.order_created)
-        self.store.unsubscribe('billing', 'created', self.billing_created)
-        logging.getLogger().info('unsubscribed from domain events')
+        self.es.unsubscribe('order', 'created', self.order_created)
+        self.es.unsubscribe('billing', 'created', self.billing_created)
+        logging.info('unsubscribed from domain events')
 
     def get_billings(self, _req):
 
         try:
             billing_id = json.loads(_req)['id']
         except KeyError:
-            billings = json.dumps([item for item in self.store.find_all('billing')])
+            billings = json.dumps([item for item in self.es.find_all('billing')])
             return json.dumps(billings)
 
-        billing = self.store.find_one('billing', billing_id)
+        billing = self.es.find_one('billing', billing_id)
         if not billing:
             raise ValueError("could not find billing")
 
@@ -121,7 +120,7 @@ class BillingService(object):
                 raise ValueError("missing mandatory parameter 'order_id'")
 
             # trigger event
-            self.store.publish('billing', 'created', **new_billing)
+            self.es.publish('billing', 'created', **new_billing)
 
             billing_ids.append(new_billing['id'])
 
@@ -143,7 +142,7 @@ class BillingService(object):
         billing['id'] = billing_id
 
         # trigger event
-        self.store.publish('billing', 'updated', **billing)
+        self.es.publish('billing', 'updated', **billing)
 
         return json.dumps(True)
 
@@ -154,14 +153,16 @@ class BillingService(object):
         except KeyError:
             raise ValueError("missing mandatory parameter 'id'")
 
-        billing = self.store.find_one('billing', billing_id)
+        billing = self.es.find_one('billing', billing_id)
         if not billing:
             raise ValueError("could not find billing")
 
         # trigger event
-        self.store.publish('billing', 'deleted', **billing)
+        self.es.publish('billing', 'deleted', **billing)
 
         return json.dumps(True)
+
+
 
 
 b = BillingService()

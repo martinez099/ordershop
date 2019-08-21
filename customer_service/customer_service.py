@@ -1,9 +1,10 @@
 import atexit
 import json
+import logging
 import uuid
 
 from event_store.event_store_client import EventStore
-from message_queue.message_queue_client import MessageQueue, Receivers
+from message_queue.message_queue_client import Receivers
 
 
 class CustomerService(object):
@@ -12,12 +13,11 @@ class CustomerService(object):
     """
 
     def __init__(self):
-        self.store = EventStore()
-        self.mq = MessageQueue()
-        self.rs = Receivers(self.mq, 'customer-service', [self.post_customers,
-                                                          self.get_customers,
-                                                          self.put_customer,
-                                                          self.delete_customer])
+        self.es = EventStore()
+        self.rs = Receivers('customer-service', [self.post_customers,
+                                                 self.get_customers,
+                                                 self.put_customer,
+                                                 self.delete_customer])
 
     @staticmethod
     def create_customer(_name, _email):
@@ -35,8 +35,8 @@ class CustomerService(object):
         }
 
     def start(self):
-        self.store.activate_entity_cache('customer')
-        atexit.register(self.store.deactivate_entity_cache, 'customer')
+        self.es.activate_entity_cache('customer')
+        atexit.register(self.es.deactivate_entity_cache, 'customer')
         self.rs.start()
         self.rs.wait()
 
@@ -48,10 +48,10 @@ class CustomerService(object):
         try:
             billing_id = json.loads(_req)['id']
         except KeyError:
-            customers = json.dumps([item for item in self.store.find_all('customer')])
+            customers = json.dumps([item for item in self.es.find_all('customer')])
             return json.dumps(customers)
 
-        customer = self.store.find_one('customer', billing_id)
+        customer = self.es.find_one('customer', billing_id)
         if not customer:
             raise ValueError("could not find customer")
 
@@ -71,7 +71,7 @@ class CustomerService(object):
                 raise ValueError("missing mandatory parameter 'name' and/or 'email'")
 
             # trigger event
-            self.store.publish('customer', 'created', **new_customer)
+            self.es.publish('customer', 'created', **new_customer)
 
             customer_ids.append(new_customer['id'])
 
@@ -93,7 +93,7 @@ class CustomerService(object):
         customer['id'] = customer_id
 
         # trigger event
-        self.store.publish('customer', 'updated', **customer)
+        self.es.publish('customer', 'updated', **customer)
 
         return json.dumps(True)
 
@@ -104,15 +104,17 @@ class CustomerService(object):
         except KeyError:
             raise ValueError("missing mandatory parameter 'id'")
 
-        customer = self.store.find_one('customer', customer_id)
+        customer = self.es.find_one('customer', customer_id)
         if not customer:
             raise ValueError("could not find customer")
 
         # trigger event
-        self.store.publish('customer', 'deleted', **customer)
+        self.es.publish('customer', 'deleted', **customer)
 
         return json.dumps(True)
 
+
+logging.basicConfig(level=logging.INFO)
 
 c = CustomerService()
 c.start()
