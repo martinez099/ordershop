@@ -163,7 +163,7 @@ class BillingService(object):
         return json.dumps(True)
 
 
-
+logging.basicConfig(level=logging.INFO)
 
 b = BillingService()
 b.start()

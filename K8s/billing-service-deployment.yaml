@@ -1,0 +1,30 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -f ../docker-compose.yml
+    kompose.version: 1.18.0 ()
+  creationTimestamp: null
+  labels:
+    io.kompose.service: billing-service
+  name: billing-service
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: billing-service
+    spec:
+      containers:
+      - env:
+        - name: EVENT_STORE_HOSTNAME
+          value: event-store
+        - name: MESSAGE_QUEUE_HOSTNAME
+          value: message-queue
+        image: eu.gcr.io/central-beach-194106/billing-service:latest
+        name: billing-service
+        resources: {}
+      restartPolicy: Always
+status: {}

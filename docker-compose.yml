@@ -2,37 +2,37 @@ version: '3'
 services:
   billing-service:
     build: "./billing_service"
-    image: billing-service:latest
+    image: eu.gcr.io/central-beach-194106/billing-service:latest
     environment:
-      - EVENT_STORE_HOST=event-store
-      - MESSAGE_QUEUE_HOST=message-queue
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
     depends_on:
       - event-store
       - message-queue
   crm-service:
     build: "./crm_service"
-    image: crm-service:latest
+    image: eu.gcr.io/central-beach-194106/crm-service:latest
     environment:
-      - EVENT_STORE_HOST=event-store
-      - MESSAGE_QUEUE_HOST=message-queue
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
     depends_on:
       - event-store
       - message-queue
   customer-service:
     build: "./customer_service"
-    image: customer-service:latest
+    image: eu.gcr.io/central-beach-194106/customer-service:latest
     environment:
-      - EVENT_STORE_HOST=event-store
-      - MESSAGE_QUEUE_HOST=message-queue
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
     depends_on:
       - event-store
       - message-queue
   gateway-api:
     build: "./gateway_api"
-    image: gateway-api:latest
+    image: eu.gcr.io/central-beach-194106/gateway-api:latest
     environment:
-      - EVENT_STORE_HOST=event-store
-      - MESSAGE_QUEUE_HOST=message-queue
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
     ports:
       - "5000:5000"
     depends_on:
@@ -40,42 +40,42 @@ services:
       - message-queue
   inventory-service:
     build: "./inventory_service"
-    image: inventory-service:latest
+    image: eu.gcr.io/central-beach-194106/inventory-service:latest
     environment:
-      - EVENT_STORE_HOST=event-store
-      - MESSAGE_QUEUE_HOST=message-queue
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
     depends_on:
       - event-store
       - message-queue
   messaging-service:
     build: "./messaging_service"
-    image: messaging-service:latest
+    image: eu.gcr.io/central-beach-194106/messaging-service:latest
     environment:
-      - EVENT_STORE_HOST=event-store
-      - MESSAGE_QUEUE_HOST=message-queue
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
     depends_on:
       - message-queue
   order-service:
     build: "./order_service"
-    image: order-service:latest
+    image: eu.gcr.io/central-beach-194106/order-service:latest
     environment:
-      - EVENT_STORE_HOST=event-store
-      - MESSAGE_QUEUE_HOST=message-queue
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
     depends_on:
       - event-store
       - message-queue
   product-service:
     build: "./product_service"
-    image: product-service:latest
+    image: eu.gcr.io/central-beach-194106/product-service:latest
     environment:
-      - EVENT_STORE_HOST=event-store
-      - MESSAGE_QUEUE_HOST=message-queue
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
     depends_on:
       - event-store
       - message-queue
   event-store:
     build: "./event_store"
-    image: event-store:latest
+    image: eu.gcr.io/central-beach-194106/event-store:latest
     environment:
       - EVENT_STORE_REDIS_HOST=redis
       - EVENT_STORE_MAX_WORKERS=100
@@ -83,7 +83,7 @@ services:
       - redis
   message-queue:
     build: "./message_queue"
-    image: message-queue:latest
+    image: eu.gcr.io/central-beach-194106/message-queue:latest
     environment:
       - MESSAGE_QUEUE_REDIS_HOST=redis
       - MESSAGE_QUEUE_MAX_WORKERS=100
