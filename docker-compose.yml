@@ -27,9 +27,9 @@ services:
     depends_on:
       - event-store
       - message-queue
-  gateway-api:
-    build: "./gateway_api"
-    image: eu.gcr.io/central-beach-194106/gateway-api:latest
+  api-gateway:
+    build: "./api_gateway"
+    image: eu.gcr.io/central-beach-194106/api-gateway:latest
     environment:
       - EVENT_STORE_HOSTNAME=event-store
       - MESSAGE_QUEUE_HOSTNAME=message-queue

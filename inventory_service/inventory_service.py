@@ -1,5 +1,4 @@
 import atexit
-import json
 import logging
 import uuid
 
@@ -17,7 +16,7 @@ class InventoryService(object):
                                                   self.delete_inventory,
                                                   self.incr_amount,
                                                   self.decr_amount,
-                                                  self.decr_from_order])
+                                                  self.decr_from_orders])
 
     @staticmethod
     def create_inventory(_product_id, _amount):
@@ -35,6 +34,7 @@ class InventoryService(object):
         }
 
     def start(self):
+        logging.info('starting ...')
         self.es.activate_entity_cache('inventory')
         atexit.register(self.es.deactivate_entity_cache, 'inventory')
         self.rs.start()
@@ -46,107 +46,133 @@ class InventoryService(object):
     def get_inventory(self, _req):
 
         try:
-            billing_id = json.loads(_req)['id']
+            billing_id = _req['id']
         except KeyError:
-            inventory = json.dumps([item for item in self.es.find_all('inventory')])
-            return json.dumps(inventory)
+            return {
+                "result": [item for item in self.es.find_all('inventory')]
+            }
 
         inventory = self.es.find_one('inventory', billing_id)
         if not inventory:
-            raise ValueError("could not find inventory")
+            return {
+                "error": "could not find inventory"
+            }
 
-        return json.dumps(inventory) if inventory else json.dumps(False)
+        return {
+            "result": inventory
+        }
 
     def post_inventory(self, _req):
 
-        inventory = json.loads(_req)
-        if not isinstance(inventory, list):
-            inventory = [inventory]
-
+        inventory = _req if isinstance(_req, list) else [_req]
         inventory_ids = []
+
         for inventory in inventory:
             try:
                 new_inventory = InventoryService.create_inventory(inventory['product_id'], inventory['amount'])
             except KeyError:
-                raise ValueError("missing mandatory parameter 'product_id' and/or 'amount'")
+                return {
+                    "error": "missing mandatory parameter 'product_id' and/or 'amount'"
+                }
 
             # trigger event
             self.es.publish('inventory', 'created', **new_inventory)
 
             inventory_ids.append(new_inventory['id'])
 
-        return json.dumps(inventory_ids)
+        return {
+            "result": inventory_ids
+        }
 
     def put_inventory(self, _req):
 
-        inventory = json.loads(_req)
         try:
-            inventory = InventoryService.create_inventory(inventory['product_id'], inventory['amount'])
+            inventory = InventoryService.create_inventory(_req['product_id'], _req['amount'])
         except KeyError:
-            raise ValueError("missing mandatory parameter 'product_id' and/or 'amount'")
+            return {
+                "error": "missing mandatory parameter 'product_id' and/or 'amount'"
+            }
 
         try:
             inventory_id = inventory['id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'id'")
+            return {
+                "error": "missing mandatory parameter 'id'"
+            }
 
         inventory['id'] = inventory_id
 
         # trigger event
         self.es.publish('inventory', 'updated', **inventory)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
     def delete_inventory(self, _req):
 
         try:
-            inventory_id = json.loads(_req)['id']
+            inventory_id = _req['id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'id'")
+            return {
+                "error": "missing mandatory parameter 'id'"
+            }
 
         inventory = self.es.find_one('inventory', inventory_id)
         if not inventory:
-            raise ValueError("could not find inventory")
+            return {
+                "error": "could not find inventory"
+            }
 
         # trigger event
         self.es.publish('inventory', 'deleted', **inventory)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
     def incr_amount(self, _req):
 
-        params = json.loads(_req)
         try:
-            product_id = params['product_id']
+            product_id = _req['product_id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'product_id'")
+            return {
+                "error": "missing mandatory parameter 'product_id'"
+            }
 
         inventory = list(filter(lambda x: x['product_id'] == product_id, self.es.find_all('inventory')))
         if not inventory:
-            raise ValueError("could not find inventory")
+            return {
+                "error": "could not find inventory"
+            }
 
-        value = params.get('value')
         inventory = inventory[0]
+        value = _req.get('value')
         inventory['amount'] = int(inventory['amount']) - (value if value else 1)
 
         # trigger event
         self.es.publish('inventory', 'updated', **inventory)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
     def decr_amount(self, _req):
 
-        params = json.loads(_req)
         try:
-            product_id = params['product_id']
+            product_id = _req['product_id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'product_id'")
+            return {
+                "error": "missing mandatory parameter 'product_id'"
+            }
 
         inventory = list(filter(lambda x: x['product_id'] == product_id, self.es.find_all('inventory')))
         if not inventory:
-            raise ValueError("could not find inventory")
+            return {
+                "error": "could not find inventory"
+            }
 
-        value = params.get('value')
+        value = _req.get('value')
         inventory = inventory[0]
         if int(inventory['amount']) - (value if value else 1) >= 0:
 
@@ -155,22 +181,26 @@ class InventoryService(object):
             # trigger event
             self.es.publish('inventory', 'updated', **inventory)
 
-            return json.dumps(True)
+            return {
+                "result": True
+            }
         else:
-            return json.dumps(False)
+            return {
+                "error": "out of stock"
+            }
 
-    def decr_from_order(self, _req):
+    def decr_from_orders(self, _req):
 
-        values = json.loads(_req)
-        if not isinstance(values, list):
-            values = [values]
+        orders = _req if isinstance(_req, list) else [_req]
 
         occurs = {}
-        for value in values:
+        for order in orders:
             try:
-                product_ids = value['product_ids']
+                product_ids = order['product_ids']
             except KeyError:
-                raise ValueError("missing mandatory parameter 'product_ids'")
+                return {
+                    "error": "missing mandatory parameter 'product_ids'"
+                }
 
             for inventory in self.es.find_all('inventory'):
 
@@ -182,12 +212,16 @@ class InventoryService(object):
                 if occurs[inventory['product_id']] <= int(inventory['amount']):
                     continue
                 else:
-                    return json.dumps(False)
+                    return {
+                        "error": "out of stock"
+                    }
 
         for k, v in occurs.items():
             inventory = list(filter(lambda x: x['product_id'] == k, self.es.find_all('inventory')))
             if not inventory:
-                raise ValueError("could not find inventory")
+                return {
+                    "error": "could not find inventory"
+                }
 
             inventory = inventory[0]
             if int(inventory['amount']) - v >= 0:
@@ -198,9 +232,13 @@ class InventoryService(object):
                 self.es.publish('inventory', 'updated', **inventory)
 
             else:
-                return json.dumps(False)
+                return {
+                    "error": "out of stock"
+                }
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
 
 logging.basicConfig(level=logging.INFO)

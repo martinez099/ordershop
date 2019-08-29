@@ -1,5 +1,4 @@
 import atexit
-import json
 import logging
 import uuid
 
@@ -33,6 +32,7 @@ class OrderService(object):
         }
 
     def start(self):
+        logging.info('starting ...')
         self.es.activate_entity_cache('order')
         atexit.register(self.es.deactivate_entity_cache, 'order')
         self.rs.start()
@@ -44,16 +44,21 @@ class OrderService(object):
     def get_orders(self, _req):
 
         try:
-            order_id = json.loads(_req)['id']
+            order_id = _req['id']
         except KeyError:
-            orders = json.dumps([item for item in self.es.find_all('order')])
-            return json.dumps(orders)
+            return {
+                "result": [item for item in self.es.find_all('order')]
+            }
 
         order = self.es.find_one('order', order_id)
         if not order:
-            raise ValueError("could not find order")
+            return {
+                "error": "could not find order"
+            }
 
-        return json.dumps(order) if order else json.dumps(False)
+        return {
+            "result": order
+        }
 
     def get_unbilled(self, _req):
 
@@ -64,79 +69,127 @@ class OrderService(object):
             to_remove = list(filter(lambda x: x['id'] == billing['order_id'], orders))
             orders.remove(to_remove[0])
 
-        return json.dumps([item for item in orders])
+        return {
+            "result": [order for order in orders]
+        }
 
     def post_orders(self, _req):
 
-        orders = json.loads(_req)
-        if not isinstance(orders, list):
-            orders = [orders]
+        orders = _req if isinstance(_req, list) else [_req]
+        order_ids = []
 
         # decrement inventory
-        send_message('inventory-service', 'decr_from_order', orders)
+        try:
+            send_message('inventory-service', 'decr_from_orders', orders)
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
+                                                                        'decr_from_orders',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
 
-        order_ids = []
         for order in orders:
             try:
                 new_order = OrderService.create_order(order['product_ids'], order['customer_id'])
             except KeyError:
-                raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
+                return {
+                    "error": "missing mandatory parameter 'product_ids' and/or 'customer_id'"
+                }
 
             # trigger event
             self.es.publish('order', 'created', **new_order)
 
             order_ids.append(new_order['id'])
 
-        return json.dumps(order_ids)
+        return {
+            "result": order_ids
+        }
 
     def put_order(self, _req):
 
-        order = json.loads(_req)
         try:
-            order_id = order['id']
+            order_id = _req['id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'id'")
+            return {
+                "error": "missing mandatory parameter 'id'"
+            }
 
         # increment inventory
         current_order = self.es.find_one('order', order_id)
         for product_id in current_order['product_ids']:
-            send_message('inventory-service', 'incr_amount', {'product_id': product_id})
+            try:
+                send_message('inventory-service', 'incr_amount', {'product_id': product_id})
+            except Exception as e:
+                return {
+                    "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
+                                                                            'incr_amount',
+                                                                            e.__class__.__name__,
+                                                                            str(e))
+                }
 
         try:
-            order = OrderService.create_order(order['product_ids'], order['customer_id'])
+            order = OrderService.create_order(_req['product_ids'], _req['customer_id'])
         except KeyError:
-            raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
+            return {
+                "result": "missing mandatory parameter 'product_ids' and/or 'customer_id'"
+            }
 
         # decrement inventory
-        rsp = send_message('inventory-service', 'decr_from_order', order)
-        if json.loads(rsp) is False:
-            raise ValueError("out of stock")
+        try:
+            rsp = send_message('inventory-service', 'decr_from_orders', order)
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
+                                                                        'decr_from_orders',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            return rsp
 
         order['id'] = order_id
 
         # trigger event
         self.es.publish('order', 'updated', **order)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
     def delete_order(self, _req):
 
         try:
-            order_id = json.loads(_req)['id']
+            order_id = _req['id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'id'")
+            return {
+                "error": "missing mandatory parameter 'id'"
+            }
 
         order = self.es.find_one('order', order_id)
         if not order:
-            raise ValueError("could not find order")
+            return {
+                "error": "could not find order"
+            }
 
         for product_id in order['product_ids']:
-            send_message('inventory-service', 'incr_amount', {'product_id': product_id})
+            try:
+                send_message('inventory-service', 'incr_amount', {'product_id': product_id})
+            except Exception as e:
+                return {
+                    "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
+                                                                            'incr_amount',
+                                                                            e.__class__.__name__,
+                                                                            str(e))
+                }
 
         # trigger event
         self.es.publish('order', 'deleted', **order)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
 
 logging.basicConfig(level=logging.INFO)

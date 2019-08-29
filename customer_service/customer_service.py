@@ -1,5 +1,4 @@
 import atexit
-import json
 import logging
 import uuid
 
@@ -35,6 +34,7 @@ class CustomerService(object):
         }
 
     def start(self):
+        logging.info('starting ...')
         self.es.activate_entity_cache('customer')
         atexit.register(self.es.deactivate_entity_cache, 'customer')
         self.rs.start()
@@ -46,72 +46,90 @@ class CustomerService(object):
     def get_customers(self, _req):
 
         try:
-            billing_id = json.loads(_req)['id']
+            billing_id = _req['id']
         except KeyError:
-            customers = json.dumps([item for item in self.es.find_all('customer')])
-            return json.dumps(customers)
+            return {
+                "result": [item for item in self.es.find_all('customer')]
+            }
 
         customer = self.es.find_one('customer', billing_id)
         if not customer:
-            raise ValueError("could not find customer")
+            return {
+                "error": "could not find customer"
+            }
 
-        return json.dumps(customer) if customer else json.dumps(False)
+        return {
+            "result": customer
+        }
 
     def post_customers(self, _req):
 
-        customers = json.loads(_req)
-        if not isinstance(customers, list):
-            customers = [customers]
-
+        customers = _req if isinstance(_req, list) else [_req]
         customer_ids = []
+
         for customer in customers:
             try:
                 new_customer = CustomerService.create_customer(customer['name'], customer['email'])
             except KeyError:
-                raise ValueError("missing mandatory parameter 'name' and/or 'email'")
+                return {
+                    "error": "missing mandatory parameter 'name' and/or 'email'"
+                }
 
             # trigger event
             self.es.publish('customer', 'created', **new_customer)
 
             customer_ids.append(new_customer['id'])
 
-        return json.dumps(customer_ids)
+        return {
+            "result": customer_ids
+        }
 
     def put_customer(self, _req):
 
-        customer = json.loads(_req)
         try:
-            customer = CustomerService.create_customer(customer['name'], customer['email'])
+            customer = CustomerService.create_customer(_req['name'], _req['email'])
         except KeyError:
-            raise ValueError("missing mandatory parameter 'name' and/or 'email'")
+            return {
+                "error": "missing mandatory parameter 'name' and/or 'email'"
+            }
 
         try:
             customer_id = customer['id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'id'")
+            return {
+                "error": "missing mandatory parameter 'id'"
+            }
 
         customer['id'] = customer_id
 
         # trigger event
         self.es.publish('customer', 'updated', **customer)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
     def delete_customer(self, _req):
 
         try:
-            customer_id = json.loads(_req)['id']
+            customer_id = _req['id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'id'")
+            return {
+                "error": "missing mandatory parameter 'id'"
+            }
 
         customer = self.es.find_one('customer', customer_id)
         if not customer:
-            raise ValueError("could not find customer")
+            return {
+                "error": "could not find customer"
+            }
 
         # trigger event
         self.es.publish('customer', 'deleted', **customer)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
 
 logging.basicConfig(level=logging.INFO)

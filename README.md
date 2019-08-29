@@ -12,7 +12,7 @@ This shows Redis as a communication channel in a microservices architecture.
 
 ## Test
 
-- `python3 -m unittest tests/client.py`
+- `python3 -m unittest tests/unit.py`
 
 ## Stop
 

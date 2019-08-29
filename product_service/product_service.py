@@ -1,5 +1,4 @@
 import atexit
-import json
 import logging
 import uuid
 
@@ -35,6 +34,7 @@ class ProductService(object):
         }
 
     def start(self):
+        logging.info('starting ...')
         self.es.activate_entity_cache('product')
         atexit.register(self.es.deactivate_entity_cache, 'product')
         self.rs.start()
@@ -46,72 +46,90 @@ class ProductService(object):
     def get_products(self, _req):
 
         try:
-            product_id = json.loads(_req)['id']
+            product_id = _req['id']
         except KeyError:
-            products = json.dumps([item for item in self.es.find_all('product')])
-            return json.dumps(products)
+            return {
+                "result": [item for item in self.es.find_all('product')]
+            }
 
         product = self.es.find_one('product', product_id)
         if not product:
-            raise ValueError("could not find product")
+            return {
+                "error": "could not find product"
+            }
 
-        return json.dumps(product) if product else json.dumps(False)
+        return {
+            "result": product
+        }
 
     def post_products(self,_req):
 
-        products = json.loads(_req)
-        if not isinstance(products, list):
-            products = [products]
-
+        products = _req if isinstance(_req, list) else [_req]
         product_ids = []
+
         for product in products:
             try:
                 new_product = ProductService.create_product(product['name'], product['price'])
             except KeyError:
-                raise ValueError("missing mandatory parameter 'name' and/or 'price'")
+                return {
+                    "error": "missing mandatory parameter 'name' and/or 'price'"
+                }
 
             # trigger event
             self.es.publish('product', 'created', **new_product)
 
             product_ids.append(new_product['id'])
 
-        return json.dumps(product_ids)
+        return {
+            "result": product_ids
+        }
 
     def put_product(self, _req):
 
-        product = json.loads(_req)
         try:
-            product = ProductService.create_product(product['name'], product['price'])
+            product = ProductService.create_product(_req['name'], _req['price'])
         except KeyError:
-            raise ValueError("missing mandatory parameter 'name' and/or 'price'")
+            return {
+                "error": "missing mandatory parameter 'name' and/or 'price'"
+            }
 
         try:
             product_id = product['id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'id'")
+            return {
+                "error": "missing mandatory parameter 'id'"
+            }
 
         product['id'] = product_id
 
         # trigger event
         self.es.publish('product', 'updated', **product)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
     def delete_product(self, _req):
 
         try:
-            product_id = json.loads(_req)['id']
+            product_id = _req['id']
         except KeyError:
-            raise ValueError("missing mandatory parameter 'id'")
+            return {
+                "error": "missing mandatory parameter 'id'"
+            }
 
         product = self.es.find_one('product', product_id)
         if not product:
-            raise ValueError("could not find product")
+            return {
+                "error": "could not find product"
+            }
 
         # trigger event
         self.es.publish('product', 'deleted', **product)
 
-        return json.dumps(True)
+        return {
+            "result": True
+        }
 
 
 logging.basicConfig(level=logging.INFO)

@@ -6,10 +6,10 @@ RUN pip install flask
 
 RUN mkdir -p /app
 
-COPY gateway_api.py /app/
+COPY api_gateway.py /app/
 
 ENV FLASK_ENV development
-ENV FLASK_APP /app/gateway_api/gateway_api.py
+ENV FLASK_APP /app/api_gateway/api_gateway.py
 ENV PYTHONPATH /app:/app/event_store:/app/message_queue
 
 EXPOSE 5000
