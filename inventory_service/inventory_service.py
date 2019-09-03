@@ -2,14 +2,14 @@ import atexit
 import logging
 import uuid
 
-from event_store.event_store_client import EventStore
+from event_store.event_store_client import EventStoreClient
 from message_queue.message_queue_client import Receivers
 
 
 class InventoryService(object):
 
     def __init__(self):
-        self.es = EventStore()
+        self.es = EventStoreClient()
         self.rs = Receivers('inventory-service', [self.get_inventory,
                                                   self.post_inventory,
                                                   self.put_inventory,

@@ -2,14 +2,14 @@ import atexit
 import json
 import logging
 
-from event_store.event_store_client import EventStore
+from event_store.event_store_client import EventStoreClient
 from message_queue.message_queue_client import send_message
 
 
 class CrmService(object):
 
     def __init__(self):
-        self.es = EventStore()
+        self.es = EventStoreClient()
 
     def start(self):
         logging.info('starting ...')
@@ -32,7 +32,7 @@ class CrmService(object):
                 "msg": msg
             })
         except Exception as e:
-            logging.error(e)
+            logging.error(f'order_created error: {e}')
 
     def billing_created(self, _item):
         try:
@@ -51,7 +51,7 @@ class CrmService(object):
                 "msg": msg
             })
         except Exception as e:
-            logging.error(e)
+            logging.error(f'billing_created error: {e}')
 
     def customer_created(self, _item):
         try:
@@ -67,7 +67,7 @@ class CrmService(object):
                 "msg": msg
             })
         except Exception as e:
-            logging.error(e)
+            logging.error(f'customer_created error: {e}')
 
     def customer_deleted(self, _item):
         try:
@@ -83,7 +83,7 @@ class CrmService(object):
                 "msg": msg
             })
         except Exception as e:
-            logging.error(e)
+            logging.error(f'customer_deleted error: {e}')
 
     def subscribe_to_domain_events(self):
         self.es.subscribe('billing', 'created', self.billing_created)

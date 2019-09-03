@@ -2,14 +2,14 @@ import atexit
 import logging
 import uuid
 
-from event_store.event_store_client import EventStore
+from event_store.event_store_client import EventStoreClient
 from message_queue.message_queue_client import Receivers, send_message
 
 
 class OrderService(object):
 
     def __init__(self):
-        self.es = EventStore()
+        self.es = EventStoreClient()
         self.rs = Receivers('order-service', [self.get_orders,
                                               self.get_unbilled,
                                               self.post_orders,

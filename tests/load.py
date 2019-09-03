@@ -16,14 +16,14 @@ def test():
 
     logging.info("creating customers ...")
 
-    customers = create_customers(10)
+    customers = create_customers(100)
     rsp = http_cmd_req('{}/customers'.format(BASE_URL), customers)
     customer_ids = get_result(rsp)
     merge(customer_ids, customers)
 
     logging.info("creating products ...")
 
-    products = create_products(100)
+    products = create_products(1000)
     rsp = http_cmd_req('{}/products'.format(BASE_URL), products)
     product_ids = get_result(rsp)
     merge(product_ids, products)
@@ -39,7 +39,7 @@ def test():
 
         logging.info("creating orders ...")
 
-        orders = create_orders(10, customers, products)
+        orders = create_orders(100, customers, products)
         rsp = http_cmd_req('{}/orders'.format(BASE_URL), orders)
         order_ids = get_result(rsp)
         merge(order_ids, orders)
@@ -49,7 +49,7 @@ def test():
         logging.info("deleting orders ...")
 
         deleted = 0
-        for i in range(0, 10):
+        for i in range(0, 100):
             rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[i]['id']), _method='DELETE')
             deleted += 1 if get_result(rsp) else 0
 

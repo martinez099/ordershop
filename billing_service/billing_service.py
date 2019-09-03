@@ -3,7 +3,7 @@ import logging
 import time
 import uuid
 
-from event_store.event_store_client import EventStore
+from event_store.event_store_client import EventStoreClient
 from message_queue.message_queue_client import Receivers, send_message
 
 
@@ -13,7 +13,7 @@ class BillingService(object):
     """
 
     def __init__(self):
-        self.es = EventStore()
+        self.es = EventStoreClient()
         self.rs = Receivers('billing-service', [self.get_billings,
                                                 self.post_billings,
                                                 self.put_billing,

@@ -2,7 +2,7 @@ import atexit
 import logging
 import uuid
 
-from event_store.event_store_client import EventStore
+from event_store.event_store_client import EventStoreClient
 from message_queue.message_queue_client import Receivers
 
 
@@ -12,7 +12,7 @@ class ProductService(object):
     """
 
     def __init__(self):
-        self.es = EventStore()
+        self.es = EventStoreClient()
         self.rs = Receivers('product-service', [self.get_products,
                                                 self.post_products,
                                                 self.put_product,
