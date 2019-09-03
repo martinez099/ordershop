@@ -27,7 +27,7 @@ class CrmService(object):
 
     Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
 
-            send_message('messaging-service', 'send_email', {
+            send_message('mail-service', 'send_email', {
                 "to": customer['email'],
                 "msg": msg
             })
@@ -46,7 +46,7 @@ class CrmService(object):
 
     Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
 
-            send_message('messaging-service', 'send_email', {
+            send_message('mail-service', 'send_email', {
                 "to": customer['email'],
                 "msg": msg
             })
@@ -62,7 +62,7 @@ class CrmService(object):
     
     Cheers""".format(msg_data['name'])
 
-            send_message('messaging-service', 'send_email', {
+            send_message('mail-service', 'send_email', {
                 "to": msg_data['email'],
                 "msg": msg
             })
@@ -78,7 +78,7 @@ class CrmService(object):
     
     Cheers""".format(msg_data['name'])
 
-            send_message('messaging-service', 'send_email', {
+            send_message('mail-service', 'send_email', {
                 "to": msg_data['email'],
                 "msg": msg
             })

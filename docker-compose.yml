@@ -47,9 +47,9 @@ services:
     depends_on:
       - event-store
       - message-queue
-  messaging-service:
-    build: "./messaging_service"
-    image: eu.gcr.io/central-beach-194106/messaging-service:latest
+  mail-service:
+    build: "./mail_service"
+    image: eu.gcr.io/central-beach-194106/mail-service:latest
     environment:
       - EVENT_STORE_HOSTNAME=event-store
       - MESSAGE_QUEUE_HOSTNAME=message-queue

@@ -3,13 +3,13 @@ import logging
 from message_queue.message_queue_client import Receivers
 
 
-class MessagingService(object):
+class MailService(object):
     """
-    Messaging Service class.
+    Mail Service class.
     """
 
     def __init__(self):
-        self.rs = Receivers('messaging-service', [self.send_email])
+        self.rs = Receivers('mail-service', [self.send_email])
 
     def start(self):
         logging.info('starting ...')
@@ -34,5 +34,5 @@ class MessagingService(object):
 
 logging.basicConfig(level=logging.INFO)
 
-m = MessagingService()
+m = MailService()
 m.start()
