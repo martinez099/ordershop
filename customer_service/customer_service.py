@@ -49,7 +49,7 @@ class CustomerService(object):
             billing_id = _req['id']
         except KeyError:
             return {
-                "result": [item for item in self.es.find_all('customer')]
+                "result": list(self.es.find_all('customer').values())
             }
 
         customer = self.es.find_one('customer', billing_id)

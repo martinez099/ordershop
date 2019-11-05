@@ -49,7 +49,7 @@ class ProductService(object):
             product_id = _req['id']
         except KeyError:
             return {
-                "result": [item for item in self.es.find_all('product')]
+                "result": list(self.es.find_all('product').values())
             }
 
         product = self.es.find_one('product', product_id)
@@ -62,7 +62,7 @@ class ProductService(object):
             "result": product
         }
 
-    def post_products(self,_req):
+    def post_products(self, _req):
 
         products = _req if isinstance(_req, list) else [_req]
         product_ids = []

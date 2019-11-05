@@ -47,7 +47,7 @@ class OrderService(object):
             order_id = _req['id']
         except KeyError:
             return {
-                "result": [item for item in self.es.find_all('order')]
+                "result": list(self.es.find_all('order').values())
             }
 
         order = self.es.find_one('order', order_id)
@@ -62,15 +62,15 @@ class OrderService(object):
 
     def get_unbilled(self, _req):
 
-        billings = self.es.find_all('billing')
-        orders = self.es.find_all('order')
+        billings = self.es.find_all('billing').values()
+        orders = list(self.es.find_all('order').values())
 
         for billing in billings:
             to_remove = list(filter(lambda x: x['id'] == billing['order_id'], orders))
             orders.remove(to_remove[0])
 
         return {
-            "result": [order for order in orders]
+            "result": orders
         }
 
     def post_orders(self, _req):
@@ -117,9 +117,10 @@ class OrderService(object):
 
         # increment inventory
         current_order = self.es.find_one('order', order_id)
+
         for product_id in current_order['product_ids']:
             try:
-                send_message('inventory-service', 'incr_amount', {'product_id': product_id})
+                rsp = send_message('inventory-service', 'incr_amount', {'product_id': product_id})
             except Exception as e:
                 return {
                     "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
@@ -127,6 +128,10 @@ class OrderService(object):
                                                                             e.__class__.__name__,
                                                                             str(e))
                 }
+
+            if 'error' in rsp:
+                rsp['error'] += ' (from inventory-service)'
+                return rsp
 
         try:
             order = OrderService.create_order(_req['product_ids'], _req['customer_id'])
@@ -147,6 +152,7 @@ class OrderService(object):
             }
 
         if 'error' in rsp:
+            rsp['error'] += ' (from inventory-service)'
             return rsp
 
         order['id'] = order_id
@@ -173,6 +179,7 @@ class OrderService(object):
                 "error": "could not find order"
             }
 
+        # increment inventory
         for product_id in order['product_ids']:
             try:
                 send_message('inventory-service', 'incr_amount', {'product_id': product_id})

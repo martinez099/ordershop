@@ -49,7 +49,7 @@ class BillingService(object):
             billing_id = _req['id']
         except KeyError:
             return {
-                "result": [item for item in self.es.find_all('billing')]
+                "result": list(self.es.find_all('billing').values())
             }
 
         billing = self.es.find_one('billing', billing_id)

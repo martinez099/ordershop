@@ -49,7 +49,7 @@ class InventoryService(object):
             billing_id = _req['id']
         except KeyError:
             return {
-                "result": [item for item in self.es.find_all('inventory')]
+                "result": list(self.es.find_all('inventory').values())
             }
 
         inventory = self.es.find_one('inventory', billing_id)
@@ -140,7 +140,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'product_id'"
             }
 
-        inventory = list(filter(lambda x: x['product_id'] == product_id, self.es.find_all('inventory')))
+        inventory = list(filter(lambda x: x['product_id'] == product_id, self.es.find_all('inventory').values()))
         if not inventory:
             return {
                 "error": "could not find inventory"
@@ -166,7 +166,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'product_id'"
             }
 
-        inventory = list(filter(lambda x: x['product_id'] == product_id, self.es.find_all('inventory')))
+        inventory = list(filter(lambda x: x['product_id'] == product_id, self.es.find_all('inventory').values()))
         if not inventory:
             return {
                 "error": "could not find inventory"
@@ -202,7 +202,7 @@ class InventoryService(object):
                     "error": "missing mandatory parameter 'product_ids'"
                 }
 
-            for inventory in self.es.find_all('inventory'):
+            for inventory in self.es.find_all('inventory').values():
 
                 if not inventory['product_id'] in occurs:
                     occurs[inventory['product_id']] = 0
@@ -217,7 +217,7 @@ class InventoryService(object):
                     }
 
         for k, v in occurs.items():
-            inventory = list(filter(lambda x: x['product_id'] == k, self.es.find_all('inventory')))
+            inventory = list(filter(lambda x: x['product_id'] == k, self.es.find_all('inventory').values()))
             if not inventory:
                 return {
                     "error": "could not find inventory"
