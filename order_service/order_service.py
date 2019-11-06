@@ -80,7 +80,7 @@ class OrderService(object):
 
         # decrement inventory
         try:
-            send_message('inventory-service', 'decr_from_orders', orders)
+            rsp = send_message('inventory-service', 'decr_from_orders', orders)
         except Exception as e:
             return {
                 "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
@@ -88,6 +88,10 @@ class OrderService(object):
                                                                         e.__class__.__name__,
                                                                         str(e))
             }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from inventory-service)'
+            return rsp
 
         for order in orders:
             try:
@@ -182,7 +186,7 @@ class OrderService(object):
         # increment inventory
         for product_id in order['product_ids']:
             try:
-                send_message('inventory-service', 'incr_amount', {'product_id': product_id})
+                rsp = send_message('inventory-service', 'incr_amount', {'product_id': product_id})
             except Exception as e:
                 return {
                     "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
@@ -190,6 +194,10 @@ class OrderService(object):
                                                                             e.__class__.__name__,
                                                                             str(e))
                 }
+
+            if 'error' in rsp:
+                rsp['error'] += ' (from inventory-service)'
+                return rsp
 
         # trigger event
         self.es.publish('order', 'deleted', **order)
