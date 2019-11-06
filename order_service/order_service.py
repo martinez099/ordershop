@@ -207,7 +207,7 @@ class OrderService(object):
         }
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 o = OrderService()
 o.start()

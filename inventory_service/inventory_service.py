@@ -194,6 +194,8 @@ class InventoryService(object):
         orders = _req if isinstance(_req, list) else [_req]
 
         occurs = {}
+        inventories = self.es.find_all('inventory').values()
+
         for order in orders:
             try:
                 product_ids = order['product_ids']
@@ -202,7 +204,7 @@ class InventoryService(object):
                     "error": "missing mandatory parameter 'product_ids'"
                 }
 
-            for inventory in self.es.find_all('inventory').values():
+            for inventory in inventories:
 
                 if not inventory['product_id'] in occurs:
                     occurs[inventory['product_id']] = 0
@@ -217,7 +219,7 @@ class InventoryService(object):
                     }
 
         for k, v in occurs.items():
-            inventory = list(filter(lambda x: x['product_id'] == k, self.es.find_all('inventory').values()))
+            inventory = list(filter(lambda x: x['product_id'] == k, inventories))
             if not inventory:
                 return {
                     "error": "could not find inventory"
@@ -241,7 +243,7 @@ class InventoryService(object):
         }
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 i = InventoryService()
 i.start()

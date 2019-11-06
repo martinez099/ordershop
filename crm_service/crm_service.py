@@ -98,7 +98,7 @@ class CrmService(object):
         self.es.unsubscribe('order', 'created', self.order_created)
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 c = CrmService()
 c.start()

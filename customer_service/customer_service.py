@@ -132,7 +132,7 @@ class CustomerService(object):
         }
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 c = CustomerService()
 c.start()

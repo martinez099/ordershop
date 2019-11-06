@@ -32,7 +32,7 @@ class MailService(object):
         }
 
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 m = MailService()
 m.start()
