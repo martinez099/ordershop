@@ -1,10 +1,11 @@
 import atexit
+import functools
 import logging
 import time
 import uuid
 
-from event_store.event_store_client import EventStoreClient
-from message_queue.message_queue_client import Receivers, send_message
+from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
+from message_queue.message_queue_client import Receivers
 
 
 class BillingService(object):
@@ -13,11 +14,13 @@ class BillingService(object):
     """
 
     def __init__(self):
-        self.es = EventStoreClient()
-        self.rs = Receivers('billing-service', [self.get_billings,
-                                                self.post_billings,
-                                                self.put_billing,
-                                                self.delete_billing])
+        self.event_store = EventStoreClient()
+        self.receivers = Receivers('billing-service', [self.get_billings,
+                                                       self.post_billings,
+                                                       self.put_billing,
+                                                       self.delete_billing])
+        self.billings = deduce_entities(self.event_store.get('billing'))
+        self.tracking_handler = functools.partial(track_entities, self.billings)
 
     @staticmethod
     def create_billing(_order_id):
@@ -28,31 +31,33 @@ class BillingService(object):
         :return: A dict with the entity properties.
         """
         return {
-            'id': str(uuid.uuid4()),
+            'entity_id': str(uuid.uuid4()),
             'order_id': _order_id,
             'done': time.time()
         }
 
     def start(self):
         logging.info('starting ...')
-        self.es.activate_entity_cache('billing')
-        atexit.register(self.es.deactivate_entity_cache, 'billing')
-        self.rs.start()
-        self.rs.wait()
+        self.event_store.subscribe('billing', self.tracking_handler)
+        atexit.register(self.stop)
+        self.receivers.start()
+        self.receivers.wait()
 
     def stop(self):
-        self.rs.stop()
+        self.event_store.unsubscribe('billing', self.tracking_handler)
+        self.receivers.stop()
+        logging.info('stopped.')
 
     def get_billings(self, _req):
 
         try:
-            billing_id = _req['id']
+            billing_id = _req['entity_id']
         except KeyError:
             return {
-                "result": list(self.es.find_all('billing').values())
+                "result": list(self.billings.values())
             }
 
-        billing = self.es.find_one('billing', billing_id)
+        billing = self.billings.get(billing_id)
         if not billing:
             return {
                 "error": "could not find billing"
@@ -76,9 +81,9 @@ class BillingService(object):
                 }
 
             # trigger event
-            self.es.publish('billing', 'created', **new_billing)
+            self.event_store.publish('billing', create_event('entity_created', new_billing))
 
-            billing_ids.append(new_billing['id'])
+            billing_ids.append(new_billing['entity_id'])
 
         return {
             "result": billing_ids
@@ -94,16 +99,14 @@ class BillingService(object):
             }
 
         try:
-            billing_id = billing['id']
+            billing['entity_id'] = _req['entity_id']
         except KeyError:
             return {
-                "error": "missing mandatory parameter 'id'"
+                "error": "missing mandatory parameter 'entity_id'"
             }
 
-        billing['id'] = billing_id
-
         # trigger event
-        self.es.publish('billing', 'updated', **billing)
+        self.event_store.publish('billing', create_event('entity_updated', billing))
 
         return {
             "result": True
@@ -112,20 +115,20 @@ class BillingService(object):
     def delete_billing(self, _req):
 
         try:
-            billing_id = _req['id']
+            billing_id = _req['entity_id']
         except KeyError:
             return {
-                "error": "missing mandatory parameter 'id'"
+                "error": "missing mandatory parameter 'entity_id'"
             }
 
-        billing = self.es.find_one('billing', billing_id)
+        billing = self.billings.get(billing_id)
         if not billing:
             return {
                 "error": "could not find billing"
             }
 
         # trigger event
-        self.es.publish('billing', 'deleted', **billing)
+        self.event_store.publish('billing', create_event('entity_deleted', billing))
 
         return {
             "result": True

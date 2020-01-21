@@ -1,3 +1,4 @@
+import atexit
 import logging
 
 from message_queue.message_queue_client import Receivers
@@ -13,6 +14,7 @@ class MailService(object):
 
     def start(self):
         logging.info('starting ...')
+        atexit.register(self.stop)
         self.rs.start()
         self.rs.wait()
 

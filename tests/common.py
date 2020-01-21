@@ -128,5 +128,5 @@ def get_any_id(_entities, _but=None):
     while not _id:
         idx = random.randrange(len(_entities))
         entity = _entities[idx]
-        _id = entity['id'] if entity['id'] != _but else None
+        _id = entity['entity_id'] if entity['entity_id'] != _but else None
     return _id

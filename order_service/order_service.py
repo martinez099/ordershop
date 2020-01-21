@@ -1,20 +1,26 @@
 import atexit
+import functools
 import logging
 import uuid
 
-from event_store.event_store_client import EventStoreClient
+from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
 from message_queue.message_queue_client import Receivers, send_message
 
 
 class OrderService(object):
+    """
+    Order Service class.
+    """
 
     def __init__(self):
-        self.es = EventStoreClient()
-        self.rs = Receivers('order-service', [self.get_orders,
-                                              self.get_unbilled,
-                                              self.post_orders,
-                                              self.put_order,
-                                              self.delete_order])
+        self.event_store = EventStoreClient()
+        self.receivers = Receivers('order-service', [self.get_orders,
+                                                     self.get_unbilled,
+                                                     self.post_orders,
+                                                     self.put_order,
+                                                     self.delete_order])
+        self.orders = deduce_entities(self.event_store.get('order'))
+        self.tracking_handler = functools.partial(track_entities, self.orders)
 
     @staticmethod
     def create_order(_product_ids, _customer_id):
@@ -26,31 +32,33 @@ class OrderService(object):
         :return: A dict with the entity properties.
         """
         return {
-            'id': str(uuid.uuid4()),
+            'entity_id': str(uuid.uuid4()),
             'product_ids': _product_ids,
             'customer_id': _customer_id
         }
 
     def start(self):
         logging.info('starting ...')
-        self.es.activate_entity_cache('order')
-        atexit.register(self.es.deactivate_entity_cache, 'order')
-        self.rs.start()
-        self.rs.wait()
+        self.event_store.subscribe('order', self.tracking_handler)
+        atexit.register(self.stop)
+        self.receivers.start()
+        self.receivers.wait()
 
     def stop(self):
-        self.rs.stop()
+        self.event_store.unsubscribe('order', self.tracking_handler)
+        self.receivers.stop()
+        logging.info('stopped.')
 
     def get_orders(self, _req):
 
         try:
-            order_id = _req['id']
+            order_id = _req['entity_id']
         except KeyError:
             return {
-                "result": list(self.es.find_all('order').values())
+                "result": list(self.orders.values())
             }
 
-        order = self.es.find_one('order', order_id)
+        order = self.orders.get(order_id)
         if not order:
             return {
                 "error": "could not find order"
@@ -62,11 +70,25 @@ class OrderService(object):
 
     def get_unbilled(self, _req):
 
-        billings = self.es.find_all('billing').values()
-        orders = list(self.es.find_all('order').values())
+        orders = list(self.orders.values())
 
-        for billing in billings:
-            to_remove = list(filter(lambda x: x['id'] == billing['order_id'], orders))
+        # get billings
+        try:
+            rsp = send_message('billing-service', 'get_billings')
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('billing-service',
+                                                                        'get_billings',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from inventory-service)'
+            return rsp
+
+        for billing in rsp['result']:
+            to_remove = list(filter(lambda x: x['entity_id'] == billing['order_id'], orders))
             orders.remove(to_remove[0])
 
         return {
@@ -102,9 +124,9 @@ class OrderService(object):
                 }
 
             # trigger event
-            self.es.publish('order', 'created', **new_order)
+            self.event_store.publish('order', create_event('entity_created', new_order))
 
-            order_ids.append(new_order['id'])
+            order_ids.append(new_order['entity_id'])
 
         return {
             "result": order_ids
@@ -113,14 +135,14 @@ class OrderService(object):
     def put_order(self, _req):
 
         try:
-            order_id = _req['id']
+            order_id = _req['entity_id']
         except KeyError:
             return {
-                "error": "missing mandatory parameter 'id'"
+                "error": "missing mandatory parameter 'entity_id'"
             }
 
         # increment inventory
-        current_order = self.es.find_one('order', order_id)
+        current_order = self.orders.get(order_id)
 
         for product_id in current_order['product_ids']:
             try:
@@ -159,10 +181,10 @@ class OrderService(object):
             rsp['error'] += ' (from inventory-service)'
             return rsp
 
-        order['id'] = order_id
+        order['entity_id'] = order_id
 
         # trigger event
-        self.es.publish('order', 'updated', **order)
+        self.event_store.publish('order', create_event('entity_updated', order))
 
         return {
             "result": True
@@ -171,13 +193,13 @@ class OrderService(object):
     def delete_order(self, _req):
 
         try:
-            order_id = _req['id']
+            order_id = _req['entity_id']
         except KeyError:
             return {
-                "error": "missing mandatory parameter 'id'"
+                "error": "missing mandatory parameter 'entity_id'"
             }
 
-        order = self.es.find_one('order', order_id)
+        order = self.orders.get(order_id)
         if not order:
             return {
                 "error": "could not find order"
@@ -200,7 +222,7 @@ class OrderService(object):
                 return rsp
 
         # trigger event
-        self.es.publish('order', 'deleted', **order)
+        self.event_store.publish('order', create_event('entity_deleted', order))
 
         return {
             "result": True

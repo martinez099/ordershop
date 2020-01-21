@@ -4,7 +4,7 @@ RUN mkdir -p /app
 
 ENV PYTHONPATH /app
 
-RUN git clone --recurse-submodules https://github.com/martinez099/eventstore.git /app
+RUN git clone https://github.com/martinez099/eventstore.git /app
 RUN pip install -r app/requirements.txt
 
 EXPOSE 50051

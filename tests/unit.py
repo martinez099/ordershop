@@ -42,7 +42,7 @@ class OrderShopTestCase(unittest.TestCase):
         products = get_result(rsp)
 
         # create inventory
-        inventory = create_inventory([product['id'] for product in products], 100)
+        inventory = create_inventory([product['entity_id'] for product in products], 100)
         rsp = http_cmd_req('{}/inventory'.format(BASE_URL), inventory)
 
         # check result
@@ -82,14 +82,14 @@ class OrderShopTestCase(unittest.TestCase):
 
         # update second order
         orders[1]['product_ids'][0] = get_any_id(products, orders[1]['product_ids'][0])
-        rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[1]['id']), orders[1], 'PUT')
+        rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[1]['entity_id']), orders[1], 'PUT')
         updated = get_result(rsp)
 
         # check result
         self.assertTrue(updated)
 
         # double check result
-        rsp = request.urlopen('{}/order/{}'.format(BASE_URL, orders[1]['id']))
+        rsp = request.urlopen('{}/order/{}'.format(BASE_URL, orders[1]['entity_id']))
         order = get_result(rsp)
         self.assertIsNotNone(order['product_ids'][0])
         self.assertEqual(orders[1]['product_ids'][0], order['product_ids'][0])
@@ -101,7 +101,7 @@ class OrderShopTestCase(unittest.TestCase):
         orders = get_result(rsp)
 
         # delete third order
-        rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[2]['id']), _method='DELETE')
+        rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[2]['entity_id']), _method='DELETE')
         deleted = get_result(rsp)
 
         # check result
@@ -114,7 +114,7 @@ class OrderShopTestCase(unittest.TestCase):
         customers = get_result(rsp)
 
         # delete third customer
-        rsp = http_cmd_req('{}/customer/{}'.format(BASE_URL, customers[2]['id']), _method='DELETE')
+        rsp = http_cmd_req('{}/customer/{}'.format(BASE_URL, customers[2]['entity_id']), _method='DELETE')
         deleted = get_result(rsp)
 
         # check result
@@ -127,7 +127,7 @@ class OrderShopTestCase(unittest.TestCase):
         orders = get_result(rsp)
 
         # perform billing
-        rsp = http_cmd_req('{}/billing'.format(BASE_URL), {"order_id": orders[0]['id']})
+        rsp = http_cmd_req('{}/billing'.format(BASE_URL), {"order_id": orders[0]['entity_id']})
         billing_id = get_result(rsp)
 
         # check result

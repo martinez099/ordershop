@@ -1,8 +1,9 @@
 import atexit
+import functools
 import logging
 import uuid
 
-from event_store.event_store_client import EventStoreClient
+from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
 from message_queue.message_queue_client import Receivers
 
 
@@ -12,11 +13,13 @@ class ProductService(object):
     """
 
     def __init__(self):
-        self.es = EventStoreClient()
-        self.rs = Receivers('product-service', [self.get_products,
-                                                self.post_products,
-                                                self.put_product,
-                                                self.delete_product])
+        self.event_store = EventStoreClient()
+        self.receivers = Receivers('product-service', [self.get_products,
+                                                       self.post_products,
+                                                       self.put_product,
+                                                       self.delete_product])
+        self.products = deduce_entities(self.event_store.get('product'))
+        self.tracking_handler = functools.partial(track_entities, self.products)
 
     @staticmethod
     def create_product(_name, _price):
@@ -28,31 +31,33 @@ class ProductService(object):
         :return: A dict with the entity properties.
         """
         return {
-            'id': str(uuid.uuid4()),
+            'entity_id': str(uuid.uuid4()),
             'name': _name,
             'price': _price
         }
 
     def start(self):
         logging.info('starting ...')
-        self.es.activate_entity_cache('product')
-        atexit.register(self.es.deactivate_entity_cache, 'product')
-        self.rs.start()
-        self.rs.wait()
+        self.event_store.subscribe('product', self.tracking_handler)
+        atexit.register(self.stop)
+        self.receivers.start()
+        self.receivers.wait()
 
     def stop(self):
-        self.rs.stop()
+        self.event_store.unsubscribe('product', self.tracking_handler)
+        self.receivers.stop()
+        logging.info('stopped.')
 
     def get_products(self, _req):
 
         try:
-            product_id = _req['id']
+            product_id = _req['entity_id']
         except KeyError:
             return {
-                "result": list(self.es.find_all('product').values())
+                "result": list(self.products.values())
             }
 
-        product = self.es.find_one('product', product_id)
+        product = self.products.get(product_id)
         if not product:
             return {
                 "error": "could not find product"
@@ -76,9 +81,9 @@ class ProductService(object):
                 }
 
             # trigger event
-            self.es.publish('product', 'created', **new_product)
+            self.event_store.publish('product', create_event('entity_created', new_product))
 
-            product_ids.append(new_product['id'])
+            product_ids.append(new_product['entity_id'])
 
         return {
             "result": product_ids
@@ -94,16 +99,14 @@ class ProductService(object):
             }
 
         try:
-            product_id = product['id']
+            product['entity_id'] = _req['entity_id']
         except KeyError:
             return {
-                "error": "missing mandatory parameter 'id'"
+                "error": "missing mandatory parameter 'entity_id'"
             }
 
-        product['id'] = product_id
-
         # trigger event
-        self.es.publish('product', 'updated', **product)
+        self.event_store.publish('product', create_event('entity_updated', product))
 
         return {
             "result": True
@@ -112,20 +115,20 @@ class ProductService(object):
     def delete_product(self, _req):
 
         try:
-            product_id = _req['id']
+            product_id = _req['entity_id']
         except KeyError:
             return {
-                "error": "missing mandatory parameter 'id'"
+                "error": "missing mandatory parameter 'entity_id'"
             }
 
-        product = self.es.find_one('product', product_id)
+        product = self.event_store.find_one('product', product_id)
         if not product:
             return {
                 "error": "could not find product"
             }
 
         # trigger event
-        self.es.publish('product', 'deleted', **product)
+        self.event_store.publish('product', create_event('entity_deleted', product))
 
         return {
             "result": True

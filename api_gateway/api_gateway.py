@@ -32,7 +32,7 @@ def proxy_request(service_name, func_name, add_params=None):
 @app.route('/billing/<billing_id>', methods=['GET'])
 def get_billings(billing_id=None):
 
-    return proxy_request('billing-service', 'get_billings', {'id': billing_id} if billing_id else None)
+    return proxy_request('billing-service', 'get_billings', {'entity_id': billing_id} if billing_id else None)
 
 
 @app.route('/billing', methods=['POST'])
@@ -45,20 +45,20 @@ def post_billings():
 @app.route('/billing/<billing_id>', methods=['PUT'])
 def put_billing(billing_id):
 
-    return proxy_request('billing-service', 'put_billing', {'id': billing_id})
+    return proxy_request('billing-service', 'put_billing', {'entity_id': billing_id})
 
 
 @app.route('/billing/<billing_id>', methods=['DELETE'])
 def delete_billing(billing_id):
 
-    return proxy_request('billing-service', 'delete_billing', {'id': billing_id})
+    return proxy_request('billing-service', 'delete_billing', {'entity_id': billing_id})
 
 
 @app.route('/customers', methods=['GET'])
 @app.route('/customer/<customer_id>', methods=['GET'])
 def get_customers(customer_id=None):
 
-    return proxy_request('customer-service', 'get_customers', {'id': customer_id} if customer_id else None)
+    return proxy_request('customer-service', 'get_customers', {'entity_id': customer_id} if customer_id else None)
 
 
 @app.route('/customer', methods=['POST'])
@@ -71,20 +71,20 @@ def post_customers():
 @app.route('/customer/<customer_id>', methods=['PUT'])
 def put_customer(customer_id):
 
-    return proxy_request('customer-service', 'put_customer', {'id': customer_id})
+    return proxy_request('customer-service', 'put_customer', {'entity_id': customer_id})
 
 
 @app.route('/customer/<customer_id>', methods=['DELETE'])
 def delete_customer(customer_id):
 
-    return proxy_request('customer-service', 'delete_customer', {'id': customer_id})
+    return proxy_request('customer-service', 'delete_customer', {'entity_id': customer_id})
 
 
 @app.route('/products', methods=['GET'])
 @app.route('/product/<product_id>', methods=['GET'])
 def get_products(product_id=None):
 
-    return proxy_request('product-service', 'get_products', {'id': product_id} if product_id else None)
+    return proxy_request('product-service', 'get_products', {'entity_id': product_id} if product_id else None)
 
 
 @app.route('/product', methods=['POST'])
@@ -97,20 +97,20 @@ def post_products():
 @app.route('/product/<product_id>', methods=['PUT'])
 def put_prodcut(product_id):
 
-    return proxy_request('product-service', 'put_product', {'id': product_id})
+    return proxy_request('product-service', 'put_product', {'entity_id': product_id})
 
 
 @app.route('/product/<product_id>', methods=['DELETE'])
 def del_prodcut(product_id):
 
-    return proxy_request('product-service', 'delete_product', {'id': product_id})
+    return proxy_request('product-service', 'delete_product', {'entity_id': product_id})
 
 
 @app.route('/inventory', methods=['GET'])
 @app.route('/inventory/<inventory_id>', methods=['GET'])
 def get_inventory(inventory_id=None):
 
-    return proxy_request('inventory-service', 'get_inventory', {'id': inventory_id} if inventory_id else None)
+    return proxy_request('inventory-service', 'get_inventory', {'entity_id': inventory_id} if inventory_id else None)
 
 
 @app.route('/inventory', methods=['POST'])
@@ -122,20 +122,20 @@ def post_inventory():
 @app.route('/inventory/<inventory_id>', methods=['PUT'])
 def put_inventory(inventory_id):
 
-    return proxy_request('inventory-service', 'put_inventory', {'id': inventory_id})
+    return proxy_request('inventory-service', 'put_inventory', {'entity_id': inventory_id})
 
 
 @app.route('/inventory/<inventory_id>', methods=['DELETE'])
 def delete_inventory(inventory_id):
 
-    return proxy_request('inventory-service', 'delete_inventory', {'id': inventory_id})
+    return proxy_request('inventory-service', 'delete_inventory', {'entity_id': inventory_id})
 
 
 @app.route('/orders', methods=['GET'])
 @app.route('/order/<order_id>', methods=['GET'])
 def get_orders(order_id=None):
 
-    return proxy_request('order-service', 'get_orders', {'id': order_id} if order_id else None)
+    return proxy_request('order-service', 'get_orders', {'entity_id': order_id} if order_id else None)
 
 
 @app.route('/orders/unbilled', methods=['GET'])
@@ -154,13 +154,13 @@ def post_orders():
 @app.route('/order/<order_id>', methods=['PUT'])
 def put_order(order_id):
 
-    return proxy_request('order-service', 'put_order', {'id': order_id})
+    return proxy_request('order-service', 'put_order', {'entity_id': order_id})
 
 
 @app.route('/order/<order_id>', methods=['DELETE'])
 def delete_order(order_id):
 
-    return proxy_request('order-service', 'delete_order', {'id': order_id})
+    return proxy_request('order-service', 'delete_order', {'entity_id': order_id})
 
 
 @app.route('/report', methods=['GET'])

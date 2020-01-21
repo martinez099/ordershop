@@ -1,22 +1,28 @@
 import atexit
+import functools
 import logging
 import uuid
 
-from event_store.event_store_client import EventStoreClient
+from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
 from message_queue.message_queue_client import Receivers
 
 
 class InventoryService(object):
+    """
+    Inventory Service class.
+    """
 
     def __init__(self):
-        self.es = EventStoreClient()
-        self.rs = Receivers('inventory-service', [self.get_inventory,
-                                                  self.post_inventory,
-                                                  self.put_inventory,
-                                                  self.delete_inventory,
-                                                  self.incr_amount,
-                                                  self.decr_amount,
-                                                  self.decr_from_orders])
+        self.event_store = EventStoreClient()
+        self.receivers = Receivers('inventory-service', [self.get_inventory,
+                                                         self.post_inventory,
+                                                         self.put_inventory,
+                                                         self.delete_inventory,
+                                                         self.incr_amount,
+                                                         self.decr_amount,
+                                                         self.decr_from_orders])
+        self.inventory = deduce_entities(self.event_store.get('inventory'))
+        self.tracking_handler = functools.partial(track_entities, self.inventory)
 
     @staticmethod
     def create_inventory(_product_id, _amount):
@@ -28,31 +34,33 @@ class InventoryService(object):
         :return: A dict with the entity properties.
         """
         return {
-            'id': str(uuid.uuid4()),
+            'entity_id': str(uuid.uuid4()),
             'product_id': _product_id,
             'amount': _amount
         }
 
     def start(self):
         logging.info('starting ...')
-        self.es.activate_entity_cache('inventory')
-        atexit.register(self.es.deactivate_entity_cache, 'inventory')
-        self.rs.start()
-        self.rs.wait()
+        self.event_store.subscribe('inventory', self.tracking_handler)
+        atexit.register(self.stop)
+        self.receivers.start()
+        self.receivers.wait()
 
     def stop(self):
-        self.rs.stop()
+        self.event_store.unsubscribe('inventory', self.tracking_handler)
+        self.receivers.stop()
+        logging.info('stopped.')
 
     def get_inventory(self, _req):
 
         try:
-            billing_id = _req['id']
+            inventory_id = _req['entity_id']
         except KeyError:
             return {
-                "result": list(self.es.find_all('inventory').values())
+                "result": list(self.inventory.values())
             }
 
-        inventory = self.es.find_one('inventory', billing_id)
+        inventory = self.inventory.get(inventory_id)
         if not inventory:
             return {
                 "error": "could not find inventory"
@@ -76,9 +84,9 @@ class InventoryService(object):
                 }
 
             # trigger event
-            self.es.publish('inventory', 'created', **new_inventory)
+            self.event_store.publish('inventory', create_event('entity_created', new_inventory))
 
-            inventory_ids.append(new_inventory['id'])
+            inventory_ids.append(new_inventory['entity_id'])
 
         return {
             "result": inventory_ids
@@ -94,16 +102,14 @@ class InventoryService(object):
             }
 
         try:
-            inventory_id = inventory['id']
+            inventory['entity_id'] = _req['entity_id']
         except KeyError:
             return {
-                "error": "missing mandatory parameter 'id'"
+                "error": "missing mandatory parameter 'entity_id'"
             }
 
-        inventory['id'] = inventory_id
-
         # trigger event
-        self.es.publish('inventory', 'updated', **inventory)
+        self.event_store.publish('inventory', create_event('entity_updated', inventory))
 
         return {
             "result": True
@@ -112,20 +118,20 @@ class InventoryService(object):
     def delete_inventory(self, _req):
 
         try:
-            inventory_id = _req['id']
+            inventory_id = _req['entity_id']
         except KeyError:
             return {
-                "error": "missing mandatory parameter 'id'"
+                "error": "missing mandatory parameter 'entity_id'"
             }
 
-        inventory = self.es.find_one('inventory', inventory_id)
+        inventory = self.inventory.get(inventory_id)
         if not inventory:
             return {
                 "error": "could not find inventory"
             }
 
         # trigger event
-        self.es.publish('inventory', 'deleted', **inventory)
+        self.event_store.publish('inventory', create_event('entity_deleted', inventory))
 
         return {
             "result": True
@@ -140,7 +146,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'product_id'"
             }
 
-        inventory = list(filter(lambda x: x['product_id'] == product_id, self.es.find_all('inventory').values()))
+        inventory = list(filter(lambda x: x['product_id'] == product_id, self.inventory.values()))
         if not inventory:
             return {
                 "error": "could not find inventory"
@@ -151,7 +157,7 @@ class InventoryService(object):
         inventory['amount'] = int(inventory['amount']) - (value if value else 1)
 
         # trigger event
-        self.es.publish('inventory', 'updated', **inventory)
+        self.event_store.publish('inventory', create_event('entity_updated', inventory))
 
         return {
             "result": True
@@ -166,7 +172,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'product_id'"
             }
 
-        inventory = list(filter(lambda x: x['product_id'] == product_id, self.es.find_all('inventory').values()))
+        inventory = list(filter(lambda x: x['product_id'] == product_id, self.inventory.values()))
         if not inventory:
             return {
                 "error": "could not find inventory"
@@ -179,7 +185,7 @@ class InventoryService(object):
             inventory['amount'] = int(inventory['amount']) - (value if value else 1)
 
             # trigger event
-            self.es.publish('inventory', 'updated', **inventory)
+            self.event_store.publish('inventory', create_event('entity_updated', inventory))
 
             return {
                 "result": True
@@ -194,7 +200,7 @@ class InventoryService(object):
         orders = _req if isinstance(_req, list) else [_req]
 
         occurs = {}
-        inventories = self.es.find_all('inventory').values()
+        inventories = self.inventory.values()
 
         for order in orders:
             try:
@@ -231,7 +237,7 @@ class InventoryService(object):
                 inventory['amount'] = int(inventory['amount']) - v
 
                 # trigger event
-                self.es.publish('inventory', 'updated', **inventory)
+                self.event_store.publish('inventory', create_event('entity_updated', inventory))
 
             else:
                 return {
