@@ -73,6 +73,15 @@ services:
     depends_on:
       - event-store
       - message-queue
+  read-model:
+    build: "./read_model"
+    image: eu.gcr.io/central-beach-194106/read-model:latest
+    environment:
+      - EVENT_STORE_HOSTNAME=event-store
+      - MESSAGE_QUEUE_HOSTNAME=message-queue
+    depends_on:
+      - event-store
+      - message-queue
   event-store:
     build: "./event_store"
     image: eu.gcr.io/central-beach-194106/event-store:latest

@@ -1,10 +1,9 @@
-import atexit
-import functools
 import logging
+import signal
 import uuid
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
-from message_queue.message_queue_client import Receivers
+from message_queue.message_queue_client import Receivers, send_message
 
 
 class CustomerService(object):
@@ -18,8 +17,6 @@ class CustomerService(object):
                                                         self.get_customers,
                                                         self.put_customer,
                                                         self.delete_customer])
-        self.customers = deduce_entities(self.event_store.get('customer'))
-        self.tracking_handler = functools.partial(track_entities, self.customers)
 
     @staticmethod
     def create_customer(_name, _email):
@@ -38,26 +35,39 @@ class CustomerService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.event_store.subscribe('customer', self.tracking_handler)
-        atexit.register(self.stop)
         self.receivers.start()
         self.receivers.wait()
 
     def stop(self):
-        self.event_store.unsubscribe('customer', self.tracking_handler)
         self.receivers.stop()
         logging.info('stopped.')
 
     def get_customers(self, _req):
 
         try:
+            rsp = send_message('read-model', 'get_all_entities', {'name': 'customer'})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_all_entities',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        customers = rsp['result']
+
+        try:
             customer_id = _req['entity_id']
         except KeyError:
             return {
-                "result": list(self.customers.values())
+                "result": list(customers.values())
             }
 
-        customer = self.event_store.get(customer_id)
+        customer = customers.get(customer_id)
         if not customer:
             return {
                 "error": "could not find customer"
@@ -121,7 +131,21 @@ class CustomerService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        customer = self.customers.get(customer_id)
+        try:
+            rsp = send_message('read-model', 'get_one_entity', {'name': 'customer', 'id': customer_id})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_one_entity',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        customer = rsp['result']
         if not customer:
             return {
                 "error": "could not find customer"
@@ -135,7 +159,11 @@ class CustomerService(object):
         }
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 c = CustomerService()
+
+signal.signal(signal.SIGINT, c.stop)
+signal.signal(signal.SIGTERM, c.stop)
+
 c.start()

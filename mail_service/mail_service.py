@@ -1,5 +1,5 @@
-import atexit
 import logging
+import signal
 
 from message_queue.message_queue_client import Receivers
 
@@ -14,12 +14,12 @@ class MailService(object):
 
     def start(self):
         logging.info('starting ...')
-        atexit.register(self.stop)
         self.rs.start()
         self.rs.wait()
 
     def stop(self):
         self.rs.stop()
+        logging.info('stopped.')
 
     def send_email(self, _req):
 
@@ -34,7 +34,11 @@ class MailService(object):
         }
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 m = MailService()
+
+signal.signal(signal.SIGINT, m.stop)
+signal.signal(signal.SIGTERM, m.stop)
+
 m.start()

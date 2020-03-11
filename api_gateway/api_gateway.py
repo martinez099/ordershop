@@ -141,7 +141,7 @@ def get_orders(order_id=None):
 @app.route('/orders/unbilled', methods=['GET'])
 def get_unbilled_orders():
 
-    return proxy_request('order-service', 'get_unbilled')
+    return proxy_request('read-model', 'get_unbilled_orders')
 
 
 @app.route('/order', methods=['POST'])

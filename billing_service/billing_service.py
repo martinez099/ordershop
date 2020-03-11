@@ -1,11 +1,10 @@
-import atexit
-import functools
 import logging
+import signal
 import time
 import uuid
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
-from message_queue.message_queue_client import Receivers
+from message_queue.message_queue_client import Receivers, send_message
 
 
 class BillingService(object):
@@ -19,8 +18,6 @@ class BillingService(object):
                                                        self.post_billings,
                                                        self.put_billing,
                                                        self.delete_billing])
-        self.billings = deduce_entities(self.event_store.get('billing'))
-        self.tracking_handler = functools.partial(track_entities, self.billings)
 
     @staticmethod
     def create_billing(_order_id):
@@ -38,26 +35,39 @@ class BillingService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.event_store.subscribe('billing', self.tracking_handler)
-        atexit.register(self.stop)
         self.receivers.start()
         self.receivers.wait()
 
     def stop(self):
-        self.event_store.unsubscribe('billing', self.tracking_handler)
         self.receivers.stop()
         logging.info('stopped.')
 
     def get_billings(self, _req):
 
         try:
+            rsp = send_message('read-model', 'get_all_entities', {'name': 'billing'})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_all_entities',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        billings = rsp['result']
+
+        try:
             billing_id = _req['entity_id']
         except KeyError:
             return {
-                "result": list(self.billings.values())
+                "result": list(billings.values())
             }
 
-        billing = self.billings.get(billing_id)
+        billing = billings.get(billing_id)
         if not billing:
             return {
                 "error": "could not find billing"
@@ -121,7 +131,21 @@ class BillingService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        billing = self.billings.get(billing_id)
+        try:
+            rsp = send_message('read-model', 'get_one_entity', {'name': 'billing', 'id': billing_id})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_one_entity',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        billing = rsp['result']
         if not billing:
             return {
                 "error": "could not find billing"
@@ -135,7 +159,11 @@ class BillingService(object):
         }
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 b = BillingService()
+
+signal.signal(signal.SIGINT, b.stop)
+signal.signal(signal.SIGTERM, b.stop)
+
 b.start()

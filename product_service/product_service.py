@@ -1,10 +1,9 @@
-import atexit
-import functools
 import logging
+import signal
 import uuid
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
-from message_queue.message_queue_client import Receivers
+from message_queue.message_queue_client import Receivers, send_message
 
 
 class ProductService(object):
@@ -18,8 +17,6 @@ class ProductService(object):
                                                        self.post_products,
                                                        self.put_product,
                                                        self.delete_product])
-        self.products = deduce_entities(self.event_store.get('product'))
-        self.tracking_handler = functools.partial(track_entities, self.products)
 
     @staticmethod
     def create_product(_name, _price):
@@ -38,26 +35,39 @@ class ProductService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.event_store.subscribe('product', self.tracking_handler)
-        atexit.register(self.stop)
         self.receivers.start()
         self.receivers.wait()
 
     def stop(self):
-        self.event_store.unsubscribe('product', self.tracking_handler)
         self.receivers.stop()
         logging.info('stopped.')
 
     def get_products(self, _req):
 
         try:
+            rsp = send_message('read-model', 'get_all_entities', {'name': 'product'})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_all_entities',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        products = rsp['result']
+
+        try:
             product_id = _req['entity_id']
         except KeyError:
             return {
-                "result": list(self.products.values())
+                "result": list(products.values())
             }
 
-        product = self.products.get(product_id)
+        product = products.get(product_id)
         if not product:
             return {
                 "error": "could not find product"
@@ -121,7 +131,21 @@ class ProductService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        product = self.event_store.find_one('product', product_id)
+        try:
+            rsp = send_message('read-model', 'get_one_entity', {'name': 'billing', 'id': product_id})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_one_entity',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        product = rsp['result']
         if not product:
             return {
                 "error": "could not find product"
@@ -135,7 +159,11 @@ class ProductService(object):
         }
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 p = ProductService()
+
+signal.signal(signal.SIGINT, p.stop)
+signal.signal(signal.SIGTERM, p.stop)
+
 p.start()

@@ -1,6 +1,5 @@
-import atexit
-import functools
 import logging
+import signal
 import uuid
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
@@ -15,12 +14,9 @@ class OrderService(object):
     def __init__(self):
         self.event_store = EventStoreClient()
         self.receivers = Receivers('order-service', [self.get_orders,
-                                                     self.get_unbilled,
                                                      self.post_orders,
                                                      self.put_order,
                                                      self.delete_order])
-        self.orders = deduce_entities(self.event_store.get('order'))
-        self.tracking_handler = functools.partial(track_entities, self.orders)
 
     @staticmethod
     def create_order(_product_ids, _customer_id):
@@ -39,26 +35,39 @@ class OrderService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.event_store.subscribe('order', self.tracking_handler)
-        atexit.register(self.stop)
         self.receivers.start()
         self.receivers.wait()
 
     def stop(self):
-        self.event_store.unsubscribe('order', self.tracking_handler)
         self.receivers.stop()
         logging.info('stopped.')
 
     def get_orders(self, _req):
 
         try:
+            rsp = send_message('read-model', 'get_all_entities', {'name': 'order'})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_all_entities',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        orders = rsp['result']
+
+        try:
             order_id = _req['entity_id']
         except KeyError:
             return {
-                "result": list(self.orders.values())
+                "result": list(orders.values())
             }
 
-        order = self.orders.get(order_id)
+        order = orders.get(order_id)
         if not order:
             return {
                 "error": "could not find order"
@@ -66,33 +75,6 @@ class OrderService(object):
 
         return {
             "result": order
-        }
-
-    def get_unbilled(self, _req):
-
-        orders = list(self.orders.values())
-
-        # get billings
-        try:
-            rsp = send_message('billing-service', 'get_billings')
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('billing-service',
-                                                                        'get_billings',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
-        if 'error' in rsp:
-            rsp['error'] += ' (from inventory-service)'
-            return rsp
-
-        for billing in rsp['result']:
-            to_remove = list(filter(lambda x: x['entity_id'] == billing['order_id'], orders))
-            orders.remove(to_remove[0])
-
-        return {
-            "result": orders
         }
 
     def post_orders(self, _req):
@@ -141,9 +123,23 @@ class OrderService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        # increment inventory
-        current_order = self.orders.get(order_id)
+        try:
+            rsp = send_message('read-model', 'get_one_entity', {'name': 'order', 'id': order_id})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_one_entity',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
 
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        current_order = rsp['result']
+
+        # increment inventory
         for product_id in current_order['product_ids']:
             try:
                 rsp = send_message('inventory-service', 'incr_amount', {'product_id': product_id})
@@ -199,7 +195,21 @@ class OrderService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        order = self.orders.get(order_id)
+        try:
+            rsp = send_message('read-model', 'get_one_entity', {'name': 'order', 'id': order_id})
+        except Exception as e:
+            return {
+                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
+                                                                        'get_one_entity',
+                                                                        e.__class__.__name__,
+                                                                        str(e))
+            }
+
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        order = rsp['result']
         if not order:
             return {
                 "error": "could not find order"
@@ -229,7 +239,11 @@ class OrderService(object):
         }
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 o = OrderService()
+
+signal.signal(signal.SIGINT, o.stop)
+signal.signal(signal.SIGTERM, o.stop)
+
 o.start()

@@ -1,6 +1,6 @@
-import atexit
 import json
 import logging
+import signal
 
 from event_store.event_store_client import EventStoreClient
 from message_queue.message_queue_client import send_message
@@ -17,7 +17,10 @@ class CrmService(object):
     def start(self):
         logging.info('starting ...')
         self.subscribe_to_domain_events()
-        atexit.register(self.unsubscribe_from_domain_events)
+
+    def stop(self):
+        self.unsubscribe_from_domain_events()
+        logging.info('stopped.')
 
     def order_created(self, _item):
         if _item.event_action == 'entity_created':
@@ -106,7 +109,11 @@ class CrmService(object):
         self.es.unsubscribe('order', self.order_created)
 
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s [%(levelname)-6s] %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
 c = CrmService()
+
+signal.signal(signal.SIGINT, c.stop)
+signal.signal(signal.SIGTERM, c.stop)
+
 c.start()
