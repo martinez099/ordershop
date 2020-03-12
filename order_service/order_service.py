@@ -13,8 +13,7 @@ class OrderService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Receivers('order-service', [self.get_orders,
-                                                     self.post_orders,
+        self.receivers = Receivers('order-service', [self.post_orders,
                                                      self.put_order,
                                                      self.delete_order])
 
@@ -41,41 +40,6 @@ class OrderService(object):
     def stop(self):
         self.receivers.stop()
         logging.info('stopped.')
-
-    def get_orders(self, _req):
-
-        try:
-            rsp = send_message('read-model', 'get_all_entities', {'name': 'order'})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_all_entities',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
-        if 'error' in rsp:
-            rsp['error'] += ' (from read-model)'
-            return rsp
-
-        orders = rsp['result']
-
-        try:
-            order_id = _req['entity_id']
-        except KeyError:
-            return {
-                "result": list(orders.values())
-            }
-
-        order = orders.get(order_id)
-        if not order:
-            return {
-                "error": "could not find order"
-            }
-
-        return {
-            "result": order
-        }
 
     def post_orders(self, _req):
 

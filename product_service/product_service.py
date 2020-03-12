@@ -13,8 +13,7 @@ class ProductService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Receivers('product-service', [self.get_products,
-                                                       self.post_products,
+        self.receivers = Receivers('product-service', [self.post_products,
                                                        self.put_product,
                                                        self.delete_product])
 
@@ -41,41 +40,6 @@ class ProductService(object):
     def stop(self):
         self.receivers.stop()
         logging.info('stopped.')
-
-    def get_products(self, _req):
-
-        try:
-            rsp = send_message('read-model', 'get_all_entities', {'name': 'product'})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_all_entities',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
-        if 'error' in rsp:
-            rsp['error'] += ' (from read-model)'
-            return rsp
-
-        products = rsp['result']
-
-        try:
-            product_id = _req['entity_id']
-        except KeyError:
-            return {
-                "result": list(products.values())
-            }
-
-        product = products.get(product_id)
-        if not product:
-            return {
-                "error": "could not find product"
-            }
-
-        return {
-            "result": product
-        }
 
     def post_products(self, _req):
 

@@ -13,8 +13,7 @@ class InventoryService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Receivers('inventory-service', [self.get_inventory,
-                                                         self.post_inventory,
+        self.receivers = Receivers('inventory-service', [self.post_inventory,
                                                          self.put_inventory,
                                                          self.delete_inventory,
                                                          self.incr_amount,
@@ -44,41 +43,6 @@ class InventoryService(object):
     def stop(self):
         self.receivers.stop()
         logging.info('stopped.')
-
-    def get_inventory(self, _req):
-
-        try:
-            rsp = send_message('read-model', 'get_all_entities', {'name': 'inventory'})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_all_entities',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
-        if 'error' in rsp:
-            rsp['error'] += ' (from read-model)'
-            return rsp
-
-        inventory = rsp['result']
-
-        try:
-            inventory_id = _req['entity_id']
-        except KeyError:
-            return {
-                "result": list(inventory.values())
-            }
-
-        inventory = inventory.get(inventory_id)
-        if not inventory:
-            return {
-                "error": "could not find inventory"
-            }
-
-        return {
-            "result": inventory
-        }
 
     def post_inventory(self, _req):
 

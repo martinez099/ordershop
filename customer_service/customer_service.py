@@ -14,7 +14,6 @@ class CustomerService(object):
     def __init__(self):
         self.event_store = EventStoreClient()
         self.receivers = Receivers('customer-service', [self.post_customers,
-                                                        self.get_customers,
                                                         self.put_customer,
                                                         self.delete_customer])
 
@@ -41,41 +40,6 @@ class CustomerService(object):
     def stop(self):
         self.receivers.stop()
         logging.info('stopped.')
-
-    def get_customers(self, _req):
-
-        try:
-            rsp = send_message('read-model', 'get_all_entities', {'name': 'customer'})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_all_entities',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
-        if 'error' in rsp:
-            rsp['error'] += ' (from read-model)'
-            return rsp
-
-        customers = rsp['result']
-
-        try:
-            customer_id = _req['entity_id']
-        except KeyError:
-            return {
-                "result": list(customers.values())
-            }
-
-        customer = customers.get(customer_id)
-        if not customer:
-            return {
-                "error": "could not find customer"
-            }
-
-        return {
-            "result": customer
-        }
 
     def post_customers(self, _req):
 

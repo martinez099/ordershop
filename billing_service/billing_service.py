@@ -14,8 +14,7 @@ class BillingService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Receivers('billing-service', [self.get_billings,
-                                                       self.post_billings,
+        self.receivers = Receivers('billing-service', [self.post_billings,
                                                        self.put_billing,
                                                        self.delete_billing])
 
@@ -41,41 +40,6 @@ class BillingService(object):
     def stop(self):
         self.receivers.stop()
         logging.info('stopped.')
-
-    def get_billings(self, _req):
-
-        try:
-            rsp = send_message('read-model', 'get_all_entities', {'name': 'billing'})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_all_entities',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
-        if 'error' in rsp:
-            rsp['error'] += ' (from read-model)'
-            return rsp
-
-        billings = rsp['result']
-
-        try:
-            billing_id = _req['entity_id']
-        except KeyError:
-            return {
-                "result": list(billings.values())
-            }
-
-        billing = billings.get(billing_id)
-        if not billing:
-            return {
-                "error": "could not find billing"
-            }
-
-        return {
-            "result": billing
-        }
 
     def post_billings(self, _req):
 

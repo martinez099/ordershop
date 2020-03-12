@@ -32,27 +32,27 @@ class ReadModel(object):
         logging.info('stopped.')
 
     def get_all_entities(self, _req):
-        entites = self._query_entities(_req['name'])
-
         return {
-            'result': entites
+            'result': self._query_entities(_req['name'])
         }
 
     def get_one_entity(self, _req):
-        entity = self._query_entity(_req['name'], _req['id'])
-
         return {
-            'result': entity
+            'result': self._query_entities(_req['name']).get(_req['id'])
         }
 
     def get_unbilled_orders(self, _req):
-        unbilleds = self._unbilled_orders()
-
         return {
-            'result': unbilleds
+            'result': self._unbilled_orders()
         }
 
     def _query_entities(self, _name):
+        """
+        Query all entities for a topic.
+
+        :param _name: The entity topic.
+        :return: A dict mapping entity ID -> entity.
+        """
         if _name in self.cache:
             return self.cache[_name]
 
@@ -65,10 +65,12 @@ class ReadModel(object):
 
         return entities
 
-    def _query_entity(self, _name, _id):
-        return self._query_entities(_name).get(_id)
-
     def _unbilled_orders(self):
+        """
+        Query all unbilled orders, i.e. orders w/o corresponding billing.
+
+        :return: a dict mapping entity ID -> entity.
+        """
         orders = self._query_entities('order')
         billings = self._query_entities('billing')
 
@@ -103,7 +105,7 @@ class ReadModel(object):
 
         if _event.event_action == 'entity_deleted':
             event_data = json.loads(_event.event_data)
-            order = self._query_entity('order', event_data.order_id)
+            order = self._query_entities('order').get(event_data.order_id)
             _unbilled_orders[event_data.order_id] = order
 
     def _track_unbilled_orders(self, _unbilled_orders, _event):
