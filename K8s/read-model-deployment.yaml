@@ -6,8 +6,8 @@ metadata:
     kompose.version: 1.20.0 ()
   creationTimestamp: null
   labels:
-    io.kompose.service: billing-service
-  name: billing-service
+    io.kompose.service: read-model
+  name: read-model
 spec:
   replicas: 1
   strategy: {}
@@ -18,7 +18,7 @@ spec:
         kompose.version: 1.20.0 ()
       creationTimestamp: null
       labels:
-        io.kompose.service: billing-service
+        io.kompose.service: read-model
     spec:
       containers:
       - env:
@@ -26,8 +26,8 @@ spec:
           value: event-store
         - name: MESSAGE_QUEUE_HOSTNAME
           value: message-queue
-        image: eu.gcr.io/central-beach-194106/billing-service:latest
-        name: billing-service
+        image: eu.gcr.io/central-beach-194106/read-model:latest
+        name: read-model
         resources: {}
       restartPolicy: Always
 status: {}
