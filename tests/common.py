@@ -26,6 +26,7 @@ def http_cmd_req(_url, _data=None, _method='POST'):
         req = request.Request(_url, data=data, headers=headers, method=_method)
     else:
         req = request.Request(_url, method=_method)
+
     return request.urlopen(req)
 
 
@@ -37,14 +38,14 @@ def get_result(_rsp):
     :return: The result.
     :raise Exception: In case of an error.
     """
-    if _rsp.code == 200:
-        rsp = json.loads(_rsp.read())
-        if 'error' in rsp:
-            raise Exception(rsp['error'])
-        else:
-            return rsp['result']
-    else:
+    if _rsp.code != 200:
         raise Exception(str(_rsp))
+
+    rsp = json.loads(_rsp.read())
+    if 'error' in rsp:
+        raise Exception(rsp['error'])
+
+    return rsp['result']
 
 
 def create_customers(amount):
@@ -61,6 +62,7 @@ def create_customers(amount):
             "name": name.title(),
             "email": "{}@server.com".format(name)
         })
+
     return customers
 
 
@@ -78,6 +80,7 @@ def create_products(amount):
             "name": name.title(),
             "price": random.randint(10, 1000)
         })
+
     return products
 
 
@@ -95,6 +98,7 @@ def create_inventory(product_ids, amount):
             "product_id": product_id,
             "amount": amount
         })
+
     return inventory
 
 
@@ -113,6 +117,7 @@ def create_orders(amount, customers, products):
             "product_ids": [get_any_id(products) for _ in range(random.randint(1, 10))],
             "customer_id": get_any_id(customers)
         })
+
     return orders
 
 
@@ -129,4 +134,5 @@ def get_any_id(_entities, _but=None):
         idx = random.randrange(len(_entities))
         entity = _entities[idx]
         _id = entity['entity_id'] if entity['entity_id'] != _but else None
+
     return _id
