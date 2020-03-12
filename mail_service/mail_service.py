@@ -1,7 +1,7 @@
 import logging
 import signal
 
-from message_queue.message_queue_client import Receivers
+from message_queue.message_queue_client import Consumers
 
 
 class MailService(object):
@@ -10,7 +10,7 @@ class MailService(object):
     """
 
     def __init__(self):
-        self.rs = Receivers('mail-service', [self.send_email])
+        self.rs = Consumers('mail-service', [self.send_email])
 
     def start(self):
         logging.info('starting ...')
@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(
 
 m = MailService()
 
-signal.signal(signal.SIGINT, m.stop)
-signal.signal(signal.SIGTERM, m.stop)
+signal.signal(signal.SIGINT, lambda n, h: m.stop())
+signal.signal(signal.SIGTERM, lambda n, h: m.stop())
 
 m.start()

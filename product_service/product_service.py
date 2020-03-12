@@ -3,7 +3,7 @@ import signal
 import uuid
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
-from message_queue.message_queue_client import Receivers, send_message
+from message_queue.message_queue_client import Consumers, send_message
 
 
 class ProductService(object):
@@ -13,7 +13,7 @@ class ProductService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Receivers('product-service', [self.post_products,
+        self.receivers = Consumers('product-service', [self.post_products,
                                                        self.put_product,
                                                        self.delete_product])
 
@@ -127,7 +127,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(
 
 p = ProductService()
 
-signal.signal(signal.SIGINT, p.stop)
-signal.signal(signal.SIGTERM, p.stop)
+signal.signal(signal.SIGINT, lambda n, h: p.stop())
+signal.signal(signal.SIGTERM, lambda n, h: p.stop())
 
 p.start()

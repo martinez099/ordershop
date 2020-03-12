@@ -4,7 +4,7 @@ import logging
 import signal
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
-from message_queue.message_queue_client import Receivers
+from message_queue.message_queue_client import Consumers
 
 
 class ReadModel(object):
@@ -14,7 +14,7 @@ class ReadModel(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Receivers('read-model', [self.get_all_entities,
+        self.receivers = Consumers('read-model', [self.get_all_entities,
                                                   self.get_one_entity,
                                                   self.get_unbilled_orders])
         self.cache = {}
@@ -71,6 +71,9 @@ class ReadModel(object):
 
         :return: a dict mapping entity ID -> entity.
         """
+        if 'unbilled_orders' in self.cache:
+            return self.cache['unbilled_orders']
+
         orders = self._query_entities('order')
         billings = self._query_entities('billing')
 
@@ -85,17 +88,25 @@ class ReadModel(object):
 
             del unbilled[order_ids_to_remove[0]]
 
-        # tracking_handler = functools.partial(self._track_unbilled_orders, unbilled)
-        # self.event_store.subscribe('order', tracking_handler)
-        # self.subscriptions['order'] = tracking_handler
-        #
-        # tracking_handler = functools.partial(self._track_unbilled_billings, unbilled)
-        # self.event_store.subscribe('billing', tracking_handler)
-        # self.subscriptions['billing'] = tracking_handler
+        tracking_handler = functools.partial(self._track_unbilled_orders, unbilled)
+        self.event_store.subscribe('order', tracking_handler)
+        self.subscriptions['order'] = tracking_handler
+
+        tracking_handler = functools.partial(self._track_unbilled_billings, unbilled)
+        self.event_store.subscribe('billing', tracking_handler)
+        self.subscriptions['billing'] = tracking_handler
+
+        self.cache['unbilled_orders'] = unbilled
 
         return unbilled
 
     def _track_unbilled_billings(self, _unbilled_orders, _event):
+        """
+        Keep track of unbilled orders, handling 'billing' events.
+
+        :param _unbilled_orders: A reference to unbilled orders.
+        :param _event: The event to process.
+        """
         if _event.event_action == 'entity_created':
             event_data = json.loads(_event.event_data)
             del _unbilled_orders[event_data.order_id]
@@ -109,6 +120,12 @@ class ReadModel(object):
             _unbilled_orders[event_data.order_id] = order
 
     def _track_unbilled_orders(self, _unbilled_orders, _event):
+        """
+        Keep track of unbilled orders, handling 'order' events.
+
+        :param _unbilled_orders: A reference to unbilled orders.
+        :param _event: The event to process.
+        """
         if _event.event_action == 'entity_created':
             event_data = json.loads(_event.event_data)
             _unbilled_orders[event_data.entity_id] = event_data
@@ -126,7 +143,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(
 
 r = ReadModel()
 
-signal.signal(signal.SIGINT, r.stop)
-signal.signal(signal.SIGTERM, r.stop)
+signal.signal(signal.SIGINT, lambda n, h: r.stop())
+signal.signal(signal.SIGTERM, lambda n, h: r.stop())
 
 r.start()

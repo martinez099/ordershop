@@ -4,7 +4,7 @@ import time
 import uuid
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
-from message_queue.message_queue_client import Receivers, send_message
+from message_queue.message_queue_client import Consumers, send_message
 
 
 class BillingService(object):
@@ -14,7 +14,7 @@ class BillingService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Receivers('billing-service', [self.post_billings,
+        self.receivers = Consumers('billing-service', [self.post_billings,
                                                        self.put_billing,
                                                        self.delete_billing])
 
@@ -127,7 +127,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(
 
 b = BillingService()
 
-signal.signal(signal.SIGINT, b.stop)
-signal.signal(signal.SIGTERM, b.stop)
+signal.signal(signal.SIGINT, lambda n, h: b.stop())
+signal.signal(signal.SIGTERM, lambda n, h: b.stop())
 
 b.start()

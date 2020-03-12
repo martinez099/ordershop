@@ -113,7 +113,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(
 
 c = CrmService()
 
-signal.signal(signal.SIGINT, c.stop)
-signal.signal(signal.SIGTERM, c.stop)
+signal.signal(signal.SIGINT, lambda n, h: c.stop())
+signal.signal(signal.SIGTERM, lambda n, h: c.stop())
 
 c.start()

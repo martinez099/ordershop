@@ -3,7 +3,7 @@ import signal
 import uuid
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
-from message_queue.message_queue_client import Receivers, send_message
+from message_queue.message_queue_client import Consumers, send_message
 
 
 class InventoryService(object):
@@ -13,7 +13,7 @@ class InventoryService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Receivers('inventory-service', [self.post_inventory,
+        self.receivers = Consumers('inventory-service', [self.post_inventory,
                                                          self.put_inventory,
                                                          self.delete_inventory,
                                                          self.incr_amount,
@@ -286,7 +286,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(
 
 i = InventoryService()
 
-signal.signal(signal.SIGINT, i.stop)
-signal.signal(signal.SIGTERM, i.stop)
+signal.signal(signal.SIGINT, lambda n, h: i.stop())
+signal.signal(signal.SIGTERM, lambda n, h: i.stop())
 
 i.start()
