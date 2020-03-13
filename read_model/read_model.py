@@ -71,9 +71,6 @@ class ReadModel(object):
 
         :return: a dict mapping entity ID -> entity.
         """
-        if 'unbilled_orders' in self.cache:
-            return self.cache['unbilled_orders']
-
         orders = self._query_entities('order')
         billings = self._query_entities('billing')
 
@@ -88,55 +85,7 @@ class ReadModel(object):
 
             del unbilled[order_ids_to_remove[0]]
 
-        tracking_handler = functools.partial(self._track_unbilled_orders, unbilled)
-        self.event_store.subscribe('order', tracking_handler)
-        self.subscriptions['order'] = tracking_handler
-
-        tracking_handler = functools.partial(self._track_unbilled_billings, unbilled)
-        self.event_store.subscribe('billing', tracking_handler)
-        self.subscriptions['billing'] = tracking_handler
-
-        self.cache['unbilled_orders'] = unbilled
-
         return unbilled
-
-    def _track_unbilled_billings(self, _unbilled_orders, _event):
-        """
-        Keep track of unbilled orders, handling 'billing' events.
-
-        :param _unbilled_orders: A reference to unbilled orders.
-        :param _event: The event to process.
-        """
-        if _event.event_action == 'entity_created':
-            event_data = json.loads(_event.event_data)
-            del _unbilled_orders[event_data.order_id]
-
-        if _event.event_action == 'entity_updated':
-            raise NotImplementedError()
-
-        if _event.event_action == 'entity_deleted':
-            event_data = json.loads(_event.event_data)
-            order = self._query_entities('order').get(event_data.order_id)
-            _unbilled_orders[event_data.order_id] = order
-
-    def _track_unbilled_orders(self, _unbilled_orders, _event):
-        """
-        Keep track of unbilled orders, handling 'order' events.
-
-        :param _unbilled_orders: A reference to unbilled orders.
-        :param _event: The event to process.
-        """
-        if _event.event_action == 'entity_created':
-            event_data = json.loads(_event.event_data)
-            _unbilled_orders[event_data.entity_id] = event_data
-
-        if _event.event_action == 'entity_updated':
-            event_data = json.loads(_event.event_data)
-            _unbilled_orders[event_data.entity_id] = event_data
-
-        if _event.event_action == 'entity_deleted':
-            event_data = json.loads(_event.event_data)
-            del _unbilled_orders[event_data.entity_id]
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
