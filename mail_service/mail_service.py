@@ -10,7 +10,7 @@ class MailService(object):
     """
 
     def __init__(self):
-        self.rs = Consumers('mail-service', [self.send_email])
+        self.rs = Consumers('mail-service', [self.send])
 
     def start(self):
         logging.info('starting ...')
@@ -21,7 +21,7 @@ class MailService(object):
         self.rs.stop()
         logging.info('stopped.')
 
-    def send_email(self, _req):
+    def send(self, _req):
 
         if not _req['to'] or not _req['msg']:
             return {

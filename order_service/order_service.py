@@ -13,12 +13,12 @@ class OrderService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('order-service', [self.post_orders,
-                                                     self.put_order,
+        self.receivers = Consumers('order-service', [self.create_orders,
+                                                     self.update_order,
                                                      self.delete_order])
 
     @staticmethod
-    def create_order(_product_ids, _customer_id):
+    def _create_entity(_product_ids, _customer_id):
         """
         Create an order entity.
 
@@ -41,7 +41,7 @@ class OrderService(object):
         self.receivers.stop()
         logging.info('stopped.')
 
-    def post_orders(self, _req):
+    def create_orders(self, _req):
 
         orders = _req if isinstance(_req, list) else [_req]
         order_ids = []
@@ -63,7 +63,7 @@ class OrderService(object):
 
         for order in orders:
             try:
-                new_order = OrderService.create_order(order['product_ids'], order['customer_id'])
+                new_order = OrderService._create_entity(order['product_ids'], order['customer_id'])
             except KeyError:
                 return {
                     "error": "missing mandatory parameter 'product_ids' and/or 'customer_id'"
@@ -78,7 +78,7 @@ class OrderService(object):
             "result": order_ids
         }
 
-    def put_order(self, _req):
+    def update_order(self, _req):
 
         try:
             order_id = _req['entity_id']
@@ -106,11 +106,11 @@ class OrderService(object):
         # increment inventory
         for product_id in current_order['product_ids']:
             try:
-                rsp = send_message('inventory-service', 'incr_amount', {'product_id': product_id})
+                rsp = send_message('inventory-service', 'incr_inventory', {'product_id': product_id})
             except Exception as e:
                 return {
                     "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
-                                                                            'incr_amount',
+                                                                            'incr_inventory',
                                                                             e.__class__.__name__,
                                                                             str(e))
                 }
@@ -120,7 +120,7 @@ class OrderService(object):
                 return rsp
 
         try:
-            order = OrderService.create_order(_req['product_ids'], _req['customer_id'])
+            order = OrderService._create_entity(_req['product_ids'], _req['customer_id'])
         except KeyError:
             return {
                 "result": "missing mandatory parameter 'product_ids' and/or 'customer_id'"
@@ -182,11 +182,11 @@ class OrderService(object):
         # increment inventory
         for product_id in order['product_ids']:
             try:
-                rsp = send_message('inventory-service', 'incr_amount', {'product_id': product_id})
+                rsp = send_message('inventory-service', 'incr_inventory', {'product_id': product_id})
             except Exception as e:
                 return {
                     "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
-                                                                            'incr_amount',
+                                                                            'incr_inventory',
                                                                             e.__class__.__name__,
                                                                             str(e))
                 }

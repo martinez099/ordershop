@@ -14,12 +14,12 @@ class BillingService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('billing-service', [self.post_billings,
-                                                       self.put_billing,
+        self.receivers = Consumers('billing-service', [self.create_billings,
+                                                       self.update_billing,
                                                        self.delete_billing])
 
     @staticmethod
-    def create_billing(_order_id):
+    def _create_entity(_order_id):
         """
         Create a billing entity.
 
@@ -41,14 +41,14 @@ class BillingService(object):
         self.receivers.stop()
         logging.info('stopped.')
 
-    def post_billings(self, _req):
+    def create_billings(self, _req):
 
         billings = _req if isinstance(_req, list) else [_req]
         billing_ids = []
 
         for billing in billings:
             try:
-                new_billing = BillingService.create_billing(billing['order_id'])
+                new_billing = BillingService._create_entity(billing['order_id'])
             except KeyError:
                 return {
                     "error": "missing mandatory parameter 'order_id'"
@@ -63,10 +63,10 @@ class BillingService(object):
             "result": billing_ids
         }
 
-    def put_billing(self, _req):
+    def update_billing(self, _req):
 
         try:
-            billing = BillingService.create_billing(_req['order_id'])
+            billing = BillingService._create_entity(_req['order_id'])
         except KeyError:
             return {
                 "error": "missing mandatory parameter 'order_id'"

@@ -13,15 +13,15 @@ class InventoryService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('inventory-service', [self.post_inventory,
-                                                         self.put_inventory,
+        self.receivers = Consumers('inventory-service', [self.create_inventory,
+                                                         self.update_inventory,
                                                          self.delete_inventory,
-                                                         self.incr_amount,
-                                                         self.decr_amount,
+                                                         self.incr_inventory,
+                                                         self.decr_inventory,
                                                          self.decr_from_orders])
 
     @staticmethod
-    def create_inventory(_product_id, _amount):
+    def _create_entity(_product_id, _amount):
         """
         Create an inventory entity.
 
@@ -44,14 +44,14 @@ class InventoryService(object):
         self.receivers.stop()
         logging.info('stopped.')
 
-    def post_inventory(self, _req):
+    def create_inventory(self, _req):
 
         inventory = _req if isinstance(_req, list) else [_req]
         inventory_ids = []
 
         for inventory in inventory:
             try:
-                new_inventory = InventoryService.create_inventory(inventory['product_id'], inventory['amount'])
+                new_inventory = InventoryService._create_entity(inventory['product_id'], inventory['amount'])
             except KeyError:
                 return {
                     "error": "missing mandatory parameter 'product_id' and/or 'amount'"
@@ -66,10 +66,10 @@ class InventoryService(object):
             "result": inventory_ids
         }
 
-    def put_inventory(self, _req):
+    def update_inventory(self, _req):
 
         try:
-            inventory = InventoryService.create_inventory(_req['product_id'], _req['amount'])
+            inventory = InventoryService._create_entity(_req['product_id'], _req['amount'])
         except KeyError:
             return {
                 "error": "missing mandatory parameter 'product_id' and/or 'amount'"
@@ -125,7 +125,7 @@ class InventoryService(object):
             "result": True
         }
 
-    def incr_amount(self, _req):
+    def incr_inventory(self, _req):
 
         try:
             product_id = _req['product_id']
@@ -167,7 +167,7 @@ class InventoryService(object):
             "result": True
         }
 
-    def decr_amount(self, _req):
+    def decr_inventory(self, _req):
 
         try:
             product_id = _req['product_id']
@@ -198,20 +198,19 @@ class InventoryService(object):
 
         value = _req.get('value')
         inventory = inventory[0]
-        if int(inventory['amount']) - (value if value else 1) >= 0:
-
-            inventory['amount'] = int(inventory['amount']) - (value if value else 1)
-
-            # trigger event
-            self.event_store.publish('inventory', create_event('entity_updated', inventory))
-
-            return {
-                "result": True
-            }
-        else:
+        if int(inventory['amount']) - (value if value else 1) < 0:
             return {
                 "error": "out of stock"
             }
+
+        inventory['amount'] = int(inventory['amount']) - (value if value else 1)
+
+        # trigger event
+        self.event_store.publish('inventory', create_event('entity_updated', inventory))
+
+        return {
+            "result": True
+        }
 
     def decr_from_orders(self, _req):
 
@@ -250,9 +249,7 @@ class InventoryService(object):
 
                 # check amount
                 occurs[inventory['product_id']] += product_ids.count(inventory['product_id'])
-                if occurs[inventory['product_id']] <= int(inventory['amount']):
-                    continue
-                else:
+                if occurs[inventory['product_id']] > int(inventory['amount']):
                     return {
                         "error": "out of stock"
                     }
@@ -265,17 +262,15 @@ class InventoryService(object):
                 }
 
             inventory = inventory[0]
-            if int(inventory['amount']) - v >= 0:
-
-                inventory['amount'] = int(inventory['amount']) - v
-
-                # trigger event
-                self.event_store.publish('inventory', create_event('entity_updated', inventory))
-
-            else:
+            if int(inventory['amount']) - v < 0:
                 return {
                     "error": "out of stock"
                 }
+
+            inventory['amount'] = int(inventory['amount']) - v
+
+            # trigger event
+            self.event_store.publish('inventory', create_event('entity_updated', inventory))
 
         return {
             "result": True

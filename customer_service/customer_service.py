@@ -13,12 +13,12 @@ class CustomerService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('customer-service', [self.post_customers,
-                                                        self.put_customer,
+        self.receivers = Consumers('customer-service', [self.create_customers,
+                                                        self.update_customer,
                                                         self.delete_customer])
 
     @staticmethod
-    def create_customer(_name, _email):
+    def _create_entity(_name, _email):
         """
         Create a customer entity.
 
@@ -41,14 +41,14 @@ class CustomerService(object):
         self.receivers.stop()
         logging.info('stopped.')
 
-    def post_customers(self, _req):
+    def create_customers(self, _req):
 
         customers = _req if isinstance(_req, list) else [_req]
         customer_ids = []
 
         for customer in customers:
             try:
-                new_customer = CustomerService.create_customer(customer['name'], customer['email'])
+                new_customer = CustomerService._create_entity(customer['name'], customer['email'])
             except KeyError:
                 return {
                     "error": "missing mandatory parameter 'name' and/or 'email'"
@@ -63,10 +63,10 @@ class CustomerService(object):
             "result": customer_ids
         }
 
-    def put_customer(self, _req):
+    def update_customer(self, _req):
 
         try:
-            customer = CustomerService.create_customer(_req['name'], _req['email'])
+            customer = CustomerService._create_entity(_req['name'], _req['email'])
         except KeyError:
             return {
                 "error": "missing mandatory parameter 'name' and/or 'email'"

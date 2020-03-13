@@ -13,12 +13,12 @@ class ProductService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('product-service', [self.post_products,
-                                                       self.put_product,
+        self.receivers = Consumers('product-service', [self.create_products,
+                                                       self.update_product,
                                                        self.delete_product])
 
     @staticmethod
-    def create_product(_name, _price):
+    def _create_entity(_name, _price):
         """
         Create a product entity.
 
@@ -41,14 +41,14 @@ class ProductService(object):
         self.receivers.stop()
         logging.info('stopped.')
 
-    def post_products(self, _req):
+    def create_products(self, _req):
 
         products = _req if isinstance(_req, list) else [_req]
         product_ids = []
 
         for product in products:
             try:
-                new_product = ProductService.create_product(product['name'], product['price'])
+                new_product = ProductService._create_entity(product['name'], product['price'])
             except KeyError:
                 return {
                     "error": "missing mandatory parameter 'name' and/or 'price'"
@@ -63,10 +63,10 @@ class ProductService(object):
             "result": product_ids
         }
 
-    def put_product(self, _req):
+    def update_product(self, _req):
 
         try:
-            product = ProductService.create_product(_req['name'], _req['price'])
+            product = ProductService._create_entity(_req['name'], _req['price'])
         except KeyError:
             return {
                 "error": "missing mandatory parameter 'name' and/or 'price'"
