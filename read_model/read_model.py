@@ -1,5 +1,4 @@
 import functools
-import json
 import logging
 import signal
 
@@ -14,7 +13,8 @@ class ReadModel(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('read-model', [self.get_all_entities,
+        self.consumers = Consumers('read-model', [self.get_all_entities,
+                                                  self.get_spec_entities,
                                                   self.get_one_entity,
                                                   self.get_unbilled_orders])
         self.cache = {}
@@ -22,18 +22,23 @@ class ReadModel(object):
 
     def start(self):
         logging.info('starting ...')
-        self.receivers.start()
-        self.receivers.wait()
+        self.consumers.start()
+        self.consumers.wait()
 
     def stop(self):
         for name, handler in self.subscriptions.items():
             self.event_store.unsubscribe(name, handler)
-        self.receivers.stop()
+        self.consumers.stop()
         logging.info('stopped.')
 
     def get_all_entities(self, _req):
         return {
             'result': self._query_entities(_req['name'])
+        }
+
+    def get_spec_entities(self, _req):
+        return {
+            'result': self._query_spec_entities(_req['name'], _req['props'])
         }
 
     def get_one_entity(self, _req):
@@ -48,9 +53,9 @@ class ReadModel(object):
 
     def _query_entities(self, _name):
         """
-        Query all entities for a topic.
+        Query all entities of a given name.
 
-        :param _name: The entity topic.
+        :param _name: The entity name.
         :return: A dict mapping entity ID -> entity.
         """
         if _name in self.cache:
@@ -64,6 +69,22 @@ class ReadModel(object):
         self.cache[_name] = entities
 
         return entities
+
+    def _query_spec_entities(self, _name, _props):
+        """
+        Query entities with defined properities.
+
+        :param _name: The entity name.
+        :param _props: A dict mapping property name -> property value.
+        :return: A dict mapping entity ID -> entity.
+        """
+        result = {}
+        for entity_id, entity in self._query_entities(_name).items():
+            for prop_name, prop_value in _props.items():
+                if prop_name in entity and entity[prop_name] == prop_value:
+                    result[entity_id] = entity
+
+        return result
 
     def _unbilled_orders(self):
         """

@@ -14,7 +14,7 @@ class BillingService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('billing-service', [self.create_billings,
+        self.consumers = Consumers('billing-service', [self.create_billings,
                                                        self.update_billing,
                                                        self.delete_billing])
 
@@ -34,11 +34,11 @@ class BillingService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.receivers.start()
-        self.receivers.wait()
+        self.consumers.start()
+        self.consumers.wait()
 
     def stop(self):
-        self.receivers.stop()
+        self.consumers.stop()
         logging.info('stopped.')
 
     def create_billings(self, _req):

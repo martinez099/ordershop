@@ -13,7 +13,7 @@ class OrderService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('order-service', [self.create_orders,
+        self.consumers = Consumers('order-service', [self.create_orders,
                                                      self.update_order,
                                                      self.delete_order])
 
@@ -34,11 +34,11 @@ class OrderService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.receivers.start()
-        self.receivers.wait()
+        self.consumers.start()
+        self.consumers.wait()
 
     def stop(self):
-        self.receivers.stop()
+        self.consumers.stop()
         logging.info('stopped.')
 
     def create_orders(self, _req):

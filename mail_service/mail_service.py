@@ -10,15 +10,15 @@ class MailService(object):
     """
 
     def __init__(self):
-        self.rs = Consumers('mail-service', [self.send])
+        self.consumers = Consumers('mail-service', [self.send])
 
     def start(self):
         logging.info('starting ...')
-        self.rs.start()
-        self.rs.wait()
+        self.consumers.start()
+        self.consumers.wait()
 
     def stop(self):
-        self.rs.stop()
+        self.consumers.stop()
         logging.info('stopped.')
 
     def send(self, _req):

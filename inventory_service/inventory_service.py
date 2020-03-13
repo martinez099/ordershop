@@ -13,7 +13,7 @@ class InventoryService(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.receivers = Consumers('inventory-service', [self.create_inventory,
+        self.consumers = Consumers('inventory-service', [self.create_inventory,
                                                          self.update_inventory,
                                                          self.delete_inventory,
                                                          self.incr_inventory,
@@ -37,11 +37,11 @@ class InventoryService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.receivers.start()
-        self.receivers.wait()
+        self.consumers.start()
+        self.consumers.wait()
 
     def stop(self):
-        self.receivers.stop()
+        self.consumers.stop()
         logging.info('stopped.')
 
     def create_inventory(self, _req):
@@ -135,11 +135,13 @@ class InventoryService(object):
             }
 
         try:
-            rsp = send_message('read-model', 'get_all_entities', {'name': 'inventory'})
+            rsp = send_message('read-model',
+                               'get_spec_entities',
+                               {'name': 'inventory', 'props': {'product_id': product_id}})
         except Exception as e:
             return {
                 "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_all_entities',
+                                                                        'get_spec_entities',
                                                                         e.__class__.__name__,
                                                                         str(e))
             }
@@ -148,9 +150,7 @@ class InventoryService(object):
             rsp['error'] += ' (from read-model)'
             return rsp
 
-        inventory = rsp['result']
-
-        inventory = list(filter(lambda x: x['product_id'] == product_id, inventory.values()))
+        inventory = list(rsp['result'].values())
         if not inventory:
             return {
                 "error": "could not find inventory"
@@ -177,11 +177,13 @@ class InventoryService(object):
             }
 
         try:
-            rsp = send_message('read-model', 'get_all_entities', {'name': 'inventory'})
+            rsp = send_message('read-model',
+                               'get_spec_entities',
+                               {'name': 'inventory', 'props': {'product_id': product_id}})
         except Exception as e:
             return {
                 "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_all_entities',
+                                                                        'get_spec_entities',
                                                                         e.__class__.__name__,
                                                                         str(e))
             }
@@ -190,7 +192,7 @@ class InventoryService(object):
             rsp['error'] += ' (from read-model)'
             return rsp
 
-        inventory = list(filter(lambda x: x['product_id'] == product_id, rsp['result'].values()))
+        inventory = list(rsp['result'].values())
         if not inventory:
             return {
                 "error": "could not find inventory"
@@ -216,8 +218,6 @@ class InventoryService(object):
 
         orders = _req if isinstance(_req, list) else [_req]
 
-        occurs = {}
-
         try:
             rsp = send_message('read-model', 'get_all_entities', {'name': 'inventory'})
         except Exception as e:
@@ -234,6 +234,9 @@ class InventoryService(object):
 
         inventories = rsp['result'].values()
 
+        occurs = {}
+
+        # calc amount
         for order in orders:
             try:
                 product_ids = order['product_ids']
@@ -247,27 +250,27 @@ class InventoryService(object):
                 if not inventory['product_id'] in occurs:
                     occurs[inventory['product_id']] = 0
 
-                # check amount
                 occurs[inventory['product_id']] += product_ids.count(inventory['product_id'])
                 if occurs[inventory['product_id']] > int(inventory['amount']):
                     return {
                         "error": "out of stock"
                     }
 
-        for k, v in occurs.items():
-            inventory = list(filter(lambda x: x['product_id'] == k, inventories))
+        # check amount
+        for product_id, amount in occurs.items():
+            inventory = list(filter(lambda x: x['product_id'] == product_id, inventories))
             if not inventory:
                 return {
                     "error": "could not find inventory"
                 }
 
             inventory = inventory[0]
-            if int(inventory['amount']) - v < 0:
+            if int(inventory['amount']) - amount < 0:
                 return {
                     "error": "out of stock"
                 }
 
-            inventory['amount'] = int(inventory['amount']) - v
+            inventory['amount'] = int(inventory['amount']) - amount
 
             # trigger event
             self.event_store.publish('inventory', create_event('entity_updated', inventory))
