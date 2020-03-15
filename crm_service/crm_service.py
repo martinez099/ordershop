@@ -12,7 +12,7 @@ class CrmService(object):
     """
 
     def __init__(self):
-        self.es = EventStoreClient()
+        self.event_store = EventStoreClient()
 
     def start(self):
         logging.info('starting ...')
@@ -25,10 +25,15 @@ class CrmService(object):
     def order_created(self, _item):
         if _item.event_action == 'entity_created':
             try:
-
                 msg_data = json.loads(_item.event_data)
-                customer = self.es.find_one('customer', msg_data['customer_id'])
-                products = [self.es.find_one('product', product_id) for product_id in msg_data['product_ids']]
+                rsp = send_message('read-model',
+                                   'get_one_entity',
+                                   {'name': 'customer', 'id': msg_data['customer_id']})
+                customer = rsp['result']
+                rsp = send_message('read-model',
+                                   'get_mult_entities',
+                                   {'name': 'product', 'ids': msg_data['product_ids']})
+                products = rsp['result']
                 msg = """Dear {}!
     
         Please transfer € {} with your favourite payment method.
@@ -46,9 +51,18 @@ class CrmService(object):
         if _item.event_action == 'entity_created':
             try:
                 msg_data = json.loads(_item.event_data)
-                order = self.es.find_one('order', msg_data['order_id'])
-                customer = self.es.find_one('customer', order['customer_id'])
-                products = [self.es.find_one('product', product_id) for product_id in order['product_ids']]
+                rsp = send_message('read-model',
+                                   'get_one_entity',
+                                   {'name': 'order', 'id': msg_data['order_id']})
+                order = rsp['result']
+                rsp = send_message('read-model',
+                                   'get_one_entity',
+                                   {'name': 'customer', 'id': order['customer_id']})
+                customer = rsp['result']
+                rsp = send_message('read-model',
+                                   'get_mult_entities',
+                                   {'name': 'product', 'ids': order['product_ids']})
+                products = rsp['result']
                 msg = """Dear {}!
     
         We've just received € {} from you, thank you for your transfer.
@@ -97,16 +111,16 @@ class CrmService(object):
                 logging.error(f'customer_deleted error: {e}')
 
     def subscribe_to_domain_events(self):
-        self.es.subscribe('billing', self.billing_created)
-        self.es.subscribe('customer', self.customer_created)
-        self.es.subscribe('customer', self.customer_deleted)
-        self.es.subscribe('order', self.order_created)
+        self.event_store.subscribe('billing', self.billing_created)
+        self.event_store.subscribe('customer', self.customer_created)
+        self.event_store.subscribe('customer', self.customer_deleted)
+        self.event_store.subscribe('order', self.order_created)
 
     def unsubscribe_from_domain_events(self):
-        self.es.unsubscribe('billing', self.billing_created)
-        self.es.unsubscribe('customer', self.customer_created)
-        self.es.unsubscribe('customer', self.customer_deleted)
-        self.es.unsubscribe('order', self.order_created)
+        self.event_store.unsubscribe('billing', self.billing_created)
+        self.event_store.unsubscribe('customer', self.customer_created)
+        self.event_store.unsubscribe('customer', self.customer_deleted)
+        self.event_store.unsubscribe('order', self.order_created)
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

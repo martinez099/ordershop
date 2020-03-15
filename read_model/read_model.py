@@ -14,6 +14,7 @@ class ReadModel(object):
     def __init__(self):
         self.event_store = EventStoreClient()
         self.consumers = Consumers('read-model', [self.get_all_entities,
+                                                  self.get_mult_entities,
                                                   self.get_spec_entities,
                                                   self.get_one_entity,
                                                   self.get_unbilled_orders])
@@ -34,6 +35,11 @@ class ReadModel(object):
     def get_all_entities(self, _req):
         return {
             'result': self._query_entities(_req['name'])
+        }
+
+    def get_mult_entities(self, _req):
+        return {
+            'result': [self._query_entities(_req['name']).get(_id) for _id in _req['ids']]
         }
 
     def get_spec_entities(self, _req):
