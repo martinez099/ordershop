@@ -17,7 +17,8 @@ class ReadModel(object):
                                                   self.get_mult_entities,
                                                   self.get_spec_entities,
                                                   self.get_one_entity,
-                                                  self.get_unbilled_orders])
+                                                  self.get_unbilled_orders,
+                                                  self.get_unshipped_orders])
         self.cache = {}
         self.subscriptions = {}
 
@@ -57,6 +58,11 @@ class ReadModel(object):
             'result': self._unbilled_orders()
         }
 
+    def get_unshipped_orders(self, _req):
+        return {
+            'result': self._unshipped_orders()
+        }
+
     def _query_entities(self, _name):
         """
         Query all entities of a given name.
@@ -67,12 +73,17 @@ class ReadModel(object):
         if _name in self.cache:
             return self.cache[_name]
 
+        # deduce entities
         events = self.event_store.get(_name)
         entities = deduce_entities(events)
+
+        # cache entities
+        self.cache[_name] = entities
+
+        # track entities
         tracking_handler = functools.partial(track_entities, entities)
         self.event_store.subscribe(_name, tracking_handler)
         self.subscriptions[_name] = tracking_handler
-        self.cache[_name] = entities
 
         return entities
 
@@ -113,6 +124,28 @@ class ReadModel(object):
             del unbilled[order_ids_to_remove[0]]
 
         return unbilled
+
+    def _unshipped_orders(self):
+        """
+        Query all unshipped orders, i.e. orders w/o corresponding shipping done.
+
+        :return: a dict mapping entity ID -> entity.
+        """
+        orders = self._query_entities('order')
+        shipping = self._query_entities('shipping')
+
+        unshipped = orders.copy()
+        for shipping_id, shipping in shipping.items():
+            order_ids_to_remove = list(filter(lambda x: x == shipping['order_id'] and shipping['done'], orders))
+            if not order_ids_to_remove:
+                raise Exception(f'could not find order {shipping["order_id"]} for shipping {shipping_id}')
+
+            if order_ids_to_remove[0] not in unshipped:
+                raise Exception(f'could not find order {order_ids_to_remove[0]}')
+
+            del unshipped[order_ids_to_remove[0]]
+
+        return unshipped
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

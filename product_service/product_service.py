@@ -66,17 +66,31 @@ class ProductService(object):
     def update_product(self, _req):
 
         try:
-            product = ProductService._create_entity(_req['name'], _req['price'])
-        except KeyError:
-            return {
-                "error": "missing mandatory parameter 'name' and/or 'price'"
-            }
-
-        try:
-            product['entity_id'] = _req['entity_id']
+            product_id = _req['entity_id']
         except KeyError:
             return {
                 "error": "missing mandatory parameter 'entity_id'"
+            }
+
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'product', 'id': product_id})
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        product = rsp['result']
+        if not product:
+            return {
+                "error": "could not find product"
+            }
+
+        # set new props
+        product['entity_id'] = product_id
+        try:
+            product['name'] = _req['name']
+            product['price'] = _req['price']
+        except KeyError:
+            return {
+                "result": "missing mandatory parameter 'name' and/or 'price"
             }
 
         # trigger event
@@ -95,16 +109,7 @@ class ProductService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        try:
-            rsp = send_message('read-model', 'get_one_entity', {'name': 'billing', 'id': product_id})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_one_entity',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'product', 'id': product_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp

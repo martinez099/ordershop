@@ -95,16 +95,7 @@ class CustomerService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        try:
-            rsp = send_message('read-model', 'get_one_entity', {'name': 'customer', 'id': customer_id})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_one_entity',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'customer', 'id': customer_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp

@@ -18,18 +18,18 @@ class OrderService(object):
                                                      self.delete_order])
 
     @staticmethod
-    def _create_entity(_product_ids, _customer_id):
+    def _create_entity(_cart_id, _status='PENDING'):
         """
         Create an order entity.
 
-        :param _product_ids: The product IDs the order is for.
-        :param _customer_id: The customer ID the order is made by.
+        :param _cart_id: The cart ID the order is for.
+        :param _status: The current status of the order, defaults to PENDING.
         :return: A dict with the entity properties.
         """
         return {
             'entity_id': str(uuid.uuid4()),
-            'product_ids': _product_ids,
-            'customer_id': _customer_id
+            'cart_id': _cart_id,
+            'status': _status,
         }
 
     def start(self):
@@ -46,27 +46,12 @@ class OrderService(object):
         orders = _req if isinstance(_req, list) else [_req]
         order_ids = []
 
-        # decrement inventory
-        try:
-            rsp = send_message('inventory-service', 'decr_from_orders', orders)
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
-                                                                        'decr_from_orders',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
-        if 'error' in rsp:
-            rsp['error'] += ' (from inventory-service)'
-            return rsp
-
         for order in orders:
             try:
-                new_order = OrderService._create_entity(order['product_ids'], order['customer_id'])
+                new_order = OrderService._create_entity(order['cart_id'])
             except KeyError:
                 return {
-                    "error": "missing mandatory parameter 'product_ids' and/or 'customer_id'"
+                    "error": "missing mandatory parameter 'cart_id'"
                 }
 
             # trigger event
@@ -87,61 +72,26 @@ class OrderService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        try:
-            rsp = send_message('read-model', 'get_one_entity', {'name': 'order', 'id': order_id})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_one_entity',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'order', 'id': order_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
 
-        current_order = rsp['result']
+        order = rsp['result']
+        if not order:
+            return {
+                "error": "could not find order"
+            }
 
-        # increment inventory
-        for product_id in current_order['product_ids']:
-            try:
-                rsp = send_message('inventory-service', 'incr_inventory', {'product_id': product_id})
-            except Exception as e:
-                return {
-                    "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
-                                                                            'incr_inventory',
-                                                                            e.__class__.__name__,
-                                                                            str(e))
-                }
-
-            if 'error' in rsp:
-                rsp['error'] += ' (from inventory-service)'
-                return rsp
-
+        # set new props
+        order['entity_id'] = order_id
         try:
-            order = OrderService._create_entity(_req['product_ids'], _req['customer_id'])
+            order['cart_id'] = _req['cart_id']
+            order['status'] = _req['status']
         except KeyError:
             return {
-                "result": "missing mandatory parameter 'product_ids' and/or 'customer_id'"
+                "result": "missing mandatory parameter 'cart_id' and/or 'status"
             }
-
-        # decrement inventory
-        try:
-            rsp = send_message('inventory-service', 'decr_from_orders', order)
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
-                                                                        'decr_from_orders',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
-        if 'error' in rsp:
-            rsp['error'] += ' (from inventory-service)'
-            return rsp
-
-        order['entity_id'] = order_id
 
         # trigger event
         self.event_store.publish('order', create_event('entity_updated', order))
@@ -159,16 +109,7 @@ class OrderService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        try:
-            rsp = send_message('read-model', 'get_one_entity', {'name': 'order', 'id': order_id})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_one_entity',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'order', 'id': order_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -178,22 +119,6 @@ class OrderService(object):
             return {
                 "error": "could not find order"
             }
-
-        # increment inventory
-        for product_id in order['product_ids']:
-            try:
-                rsp = send_message('inventory-service', 'incr_inventory', {'product_id': product_id})
-            except Exception as e:
-                return {
-                    "error": "cannot send message to {}.{} ({}): {}".format('inventory-service',
-                                                                            'incr_inventory',
-                                                                            e.__class__.__name__,
-                                                                            str(e))
-                }
-
-            if 'error' in rsp:
-                rsp['error'] += ' (from inventory-service)'
-                return rsp
 
         # trigger event
         self.event_store.publish('order', create_event('entity_deleted', order))

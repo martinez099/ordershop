@@ -73,6 +73,32 @@ def delete_billing(billing_id):
     return _send_message('billing-service', 'delete_billing', {'entity_id': billing_id})
 
 
+@app.route('/carts', methods=['GET'])
+@app.route('/cart/<cart_id>', methods=['GET'])
+def get_carts(cart_id=None):
+
+    return _read_model('cart', cart_id)
+
+
+@app.route('/cart', methods=['POST'])
+@app.route('/carts', methods=['POST'])
+def create_carts():
+
+    return _send_message('cart-service', 'create_carts')
+
+
+@app.route('/cart/<cart_id>', methods=['PUT'])
+def update_cart(cart_id):
+
+    return _send_message('cart-service', 'update_cart', {'entity_id': cart_id})
+
+
+@app.route('/cart/<cart_id>', methods=['DELETE'])
+def delete_cart(cart_id):
+
+    return _send_message('cart-service', 'delete_cart', {'entity_id': cart_id})
+
+
 @app.route('/customers', methods=['GET'])
 @app.route('/customer/<customer_id>', methods=['GET'])
 def get_customers(customer_id=None):
@@ -97,6 +123,44 @@ def update_customer(customer_id):
 def delete_customer(customer_id):
 
     return _send_message('customer-service', 'delete_customer', {'entity_id': customer_id})
+
+
+@app.route('/orders', methods=['GET'])
+@app.route('/order/<order_id>', methods=['GET'])
+def get_orders(order_id=None):
+
+    return _read_model('order', order_id)
+
+
+@app.route('/orders/unbilled', methods=['GET'])
+def get_unbilled_orders():
+
+    return _send_message('read-model', 'get_unbilled_orders')
+
+
+@app.route('/orders/unshipped', methods=['GET'])
+def get_unshipped_orders():
+
+    return _send_message('read-model', 'get_unshipped_orders')
+
+
+@app.route('/order', methods=['POST'])
+@app.route('/orders', methods=['POST'])
+def create_orders():
+
+    return _send_message('order-service', 'create_orders')
+
+
+@app.route('/order/<order_id>', methods=['PUT'])
+def update_order(order_id):
+
+    return _send_message('order-service', 'update_order', {'entity_id': order_id})
+
+
+@app.route('/order/<order_id>', methods=['DELETE'])
+def delete_order(order_id):
+
+    return _send_message('order-service', 'delete_order', {'entity_id': order_id})
 
 
 @app.route('/products', methods=['GET'])
@@ -150,36 +214,30 @@ def delete_inventory(inventory_id):
     return _send_message('inventory-service', 'delete_inventory', {'entity_id': inventory_id})
 
 
-@app.route('/orders', methods=['GET'])
-@app.route('/order/<order_id>', methods=['GET'])
-def get_orders(order_id=None):
+@app.route('/shippings', methods=['GET'])
+@app.route('/shipping/<shipping_id>', methods=['GET'])
+def get_shippings(shipping_id=None):
 
-    return _read_model('order', order_id)
-
-
-@app.route('/orders/unbilled', methods=['GET'])
-def get_unbilled_orders():
-
-    return _send_message('read-model', 'get_unbilled_orders')
+    return _read_model('shipping', shipping_id)
 
 
-@app.route('/order', methods=['POST'])
-@app.route('/orders', methods=['POST'])
-def create_orders():
+@app.route('/shipping', methods=['POST'])
+@app.route('/shippings', methods=['POST'])
+def create_shippings():
 
-    return _send_message('order-service', 'create_orders')
-
-
-@app.route('/order/<order_id>', methods=['PUT'])
-def update_order(order_id):
-
-    return _send_message('order-service', 'update_order', {'entity_id': order_id})
+    return _send_message('shipping-service', 'create_shippings')
 
 
-@app.route('/order/<order_id>', methods=['DELETE'])
-def delete_order(order_id):
+@app.route('/shipping/<shipping_id>', methods=['PUT'])
+def update_shipping(shipping_id):
 
-    return _send_message('order-service', 'delete_order', {'entity_id': order_id})
+    return _send_message('shipping-service', 'update_shipping', {'entity_id': shipping_id})
+
+
+@app.route('/shipping/<shipping_id>', methods=['DELETE'])
+def delete_shipping(shipping_id):
+
+    return _send_message('shipping-service', 'delete_shipping', {'entity_id': shipping_id})
 
 
 @app.route('/report', methods=['GET'])
@@ -187,10 +245,12 @@ def report():
 
     return {
         "result": {
-            "products": _read_model('product'),
-            "inventory": _read_model('inventory'),
-            "customers": _read_model('customer'),
-            "orders": _read_model('order'),
-            "billings": _read_model('billing')
+            "billings": _read_model('billing')['result'],
+            "carts": _read_model('cart')['result'],
+            "customers": _read_model('customer')['result'],
+            "inventory": _read_model('inventory')['result'],
+            "orders": _read_model('order')['result'],
+            "products": _read_model('product')['result'],
+            "shippings": _read_model('shipping')['result'],
         }
     }

@@ -1,6 +1,6 @@
+import json
 import logging
 import signal
-import time
 import uuid
 
 from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
@@ -19,17 +19,18 @@ class BillingService(object):
                                                        self.delete_billing])
 
     @staticmethod
-    def _create_entity(_order_id):
+    def _create_entity(_order_id, _method):
         """
         Create a billing entity.
 
         :param _order_id: The order ID the billing belongs to.
+        :param _method: The billing method.
         :return: A dict with the entity properties.
         """
         return {
             'entity_id': str(uuid.uuid4()),
             'order_id': _order_id,
-            'done': time.time()
+            'method': _method
         }
 
     def start(self):
@@ -48,10 +49,10 @@ class BillingService(object):
 
         for billing in billings:
             try:
-                new_billing = BillingService._create_entity(billing['order_id'])
+                new_billing = BillingService._create_entity(billing['order_id'], billing['method'])
             except KeyError:
                 return {
-                    "error": "missing mandatory parameter 'order_id'"
+                    "error": "missing mandatory parameter 'order_id' and/or 'method'"
                 }
 
             # trigger event
@@ -66,17 +67,31 @@ class BillingService(object):
     def update_billing(self, _req):
 
         try:
-            billing = BillingService._create_entity(_req['order_id'])
-        except KeyError:
-            return {
-                "error": "missing mandatory parameter 'order_id'"
-            }
-
-        try:
-            billing['entity_id'] = _req['entity_id']
+            billing_id = _req['entity_id']
         except KeyError:
             return {
                 "error": "missing mandatory parameter 'entity_id'"
+            }
+
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'billing', 'id': billing_id})
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        billing = rsp['result']
+        if not billing:
+            return {
+                "error": "could not find billing"
+            }
+
+        # set new props
+        billing['entity_id'] = billing_id
+        try:
+            billing['order_id'] = _req['order_id']
+            billing['method'] = _req['method']
+        except KeyError:
+            return {
+                "result": "missing mandatory parameter 'order_id' and/or 'method"
             }
 
         # trigger event
@@ -95,16 +110,7 @@ class BillingService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        try:
-            rsp = send_message('read-model', 'get_one_entity', {'name': 'billing', 'id': billing_id})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_one_entity',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'billing', 'id': billing_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp

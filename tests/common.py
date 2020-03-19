@@ -102,20 +102,36 @@ def create_inventory(product_ids, amount):
     return inventory
 
 
-def create_orders(amount, customers, products):
+def create_carts(amount, customers, products):
     """
-    Create an amount of random orders.
+    Create an amount of random carts.
 
-    :param amount: The amount of orders.
-    :param customers: The customers of the order.
-    :param products: The products of the order.
+    :param amount: The amount of carts.
+    :param customers: The customers of the cart.
+    :param products: The products of the cart.
     :return:
     """
     orders = []
     for _ in range(amount):
         orders.append({
+            "customer_id": get_any_id(customers),
             "product_ids": [get_any_id(products) for _ in range(random.randint(1, 10))],
-            "customer_id": get_any_id(customers)
+        })
+
+    return orders
+
+
+def create_orders(carts):
+    """
+    Create an amount of random orders.
+
+    :param carts: Carts for the orders.
+    :return:
+    """
+    orders = []
+    for cart in carts:
+        orders.append({
+            "cart_id": cart['entity_id']
         })
 
     return orders
@@ -131,8 +147,7 @@ def get_any_id(_entities, _but=None):
     """
     _id = None
     while not _id:
-        idx = random.randrange(len(_entities))
-        entity = _entities[idx]
+        entity = _entities[random.randrange(len(_entities))]
         _id = entity['entity_id'] if entity['entity_id'] != _but else None
 
     return _id

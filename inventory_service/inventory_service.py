@@ -1,3 +1,4 @@
+import json
 import logging
 import signal
 import uuid
@@ -15,10 +16,7 @@ class InventoryService(object):
         self.event_store = EventStoreClient()
         self.consumers = Consumers('inventory-service', [self.create_inventory,
                                                          self.update_inventory,
-                                                         self.delete_inventory,
-                                                         self.incr_inventory,
-                                                         self.decr_inventory,
-                                                         self.decr_from_orders])
+                                                         self.delete_inventory])
 
     @staticmethod
     def _create_entity(_product_id, _amount):
@@ -37,10 +35,12 @@ class InventoryService(object):
 
     def start(self):
         logging.info('starting ...')
+        self.subscribe_to_domain_events()
         self.consumers.start()
         self.consumers.wait()
 
     def stop(self):
+        self.unsubscribe_from_domain_events()
         self.consumers.stop()
         logging.info('stopped.')
 
@@ -69,17 +69,31 @@ class InventoryService(object):
     def update_inventory(self, _req):
 
         try:
-            inventory = InventoryService._create_entity(_req['product_id'], _req['amount'])
-        except KeyError:
-            return {
-                "error": "missing mandatory parameter 'product_id' and/or 'amount'"
-            }
-
-        try:
-            inventory['entity_id'] = _req['entity_id']
+            inventory_id = _req['entity_id']
         except KeyError:
             return {
                 "error": "missing mandatory parameter 'entity_id'"
+            }
+
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'inventory', 'id': inventory_id})
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        inventory = rsp['result']
+        if not inventory:
+            return {
+                "error": "could not find inventory"
+            }
+
+        # set new props
+        inventory['entity_id'] = inventory_id
+        try:
+            inventory['product_id'] = _req['product_id']
+            inventory['amount'] = _req['amount']
+        except KeyError:
+            return {
+                "result": "missing mandatory parameter 'product_id' and/or 'amount"
             }
 
         # trigger event
@@ -98,16 +112,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        try:
-            rsp = send_message('read-model', 'get_one_entity', {'name': 'inventory', 'id': inventory_id})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_one_entity',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model', 'get_one_entity', {'name': 'inventory', 'id': inventory_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -125,112 +130,62 @@ class InventoryService(object):
             "result": True
         }
 
-    def incr_inventory(self, _req):
+    def incr_inventory(self, _product_id, _value=1):
 
-        try:
-            product_id = _req['product_id']
-        except KeyError:
-            return {
-                "error": "missing mandatory parameter 'product_id'"
-            }
-
-        try:
-            rsp = send_message('read-model',
-                               'get_spec_entities',
-                               {'name': 'inventory', 'props': {'product_id': product_id}})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_spec_entities',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model',
+                           'get_spec_entities',
+                           {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
-            rsp['error'] += ' (from read-model)'
-            return rsp
+            logging.error(rsp['error'] + ' (from read-model)')
+            return False
 
         inventory = list(rsp['result'].values())
         if not inventory:
-            return {
-                "error": "could not find inventory"
-            }
+            logging.error("could not find inventory")
+            return False
 
         inventory = inventory[0]
-        value = _req.get('value')
-        inventory['amount'] = int(inventory['amount']) - (value if value else 1)
+        inventory['amount'] = int(inventory['amount']) - (_value if _value else 1)
 
         # trigger event
         self.event_store.publish('inventory', create_event('entity_updated', inventory))
 
-        return {
-            "result": True
-        }
+        return True
 
-    def decr_inventory(self, _req):
+    def decr_inventory(self, _product_id, _value=1):
 
-        try:
-            product_id = _req['product_id']
-        except KeyError:
-            return {
-                "error": "missing mandatory parameter 'product_id'"
-            }
-
-        try:
-            rsp = send_message('read-model',
-                               'get_spec_entities',
-                               {'name': 'inventory', 'props': {'product_id': product_id}})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_spec_entities',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model',
+                           'get_spec_entities',
+                           {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
-            rsp['error'] += ' (from read-model)'
-            return rsp
+            logging.error(rsp['error'] + ' (from read-model)')
+            return False
 
         inventory = list(rsp['result'].values())
         if not inventory:
-            return {
-                "error": "could not find inventory"
-            }
+            logging.error("could not find inventory")
+            return False
 
-        value = _req.get('value')
         inventory = inventory[0]
-        if int(inventory['amount']) - (value if value else 1) < 0:
-            return {
-                "error": "out of stock"
-            }
+        if int(inventory['amount']) - (_value if _value else 1) < 0:
+            logging.info("out of stock")
+            return False
 
-        inventory['amount'] = int(inventory['amount']) - (value if value else 1)
+        inventory['amount'] = int(inventory['amount']) - (_value if _value else 1)
 
         # trigger event
         self.event_store.publish('inventory', create_event('entity_updated', inventory))
 
-        return {
-            "result": True
-        }
+        return True
 
-    def decr_from_orders(self, _req):
+    def decr_from_carts(self, _orders):
 
-        orders = _req if isinstance(_req, list) else [_req]
+        orders = _orders if isinstance(_orders, list) else [_orders]
 
-        try:
-            rsp = send_message('read-model', 'get_all_entities', {'name': 'inventory'})
-        except Exception as e:
-            return {
-                "error": "cannot send message to {}.{} ({}): {}".format('read-model',
-                                                                        'get_all_entities',
-                                                                        e.__class__.__name__,
-                                                                        str(e))
-            }
-
+        rsp = send_message('read-model', 'get_all_entities', {'name': 'inventory'})
         if 'error' in rsp:
-            rsp['error'] += ' (from read-model)'
-            return rsp
+            logging.error(rsp['error'] + ' (from read-model)')
+            return False
 
         inventories = rsp['result'].values()
 
@@ -241,9 +196,8 @@ class InventoryService(object):
             try:
                 product_ids = order['product_ids']
             except KeyError:
-                return {
-                    "error": "missing mandatory parameter 'product_ids'"
-                }
+                logging.error("missing mandatory parameter 'product_ids'")
+                return False
 
             for inventory in inventories:
 
@@ -252,32 +206,77 @@ class InventoryService(object):
 
                 occurs[inventory['product_id']] += product_ids.count(inventory['product_id'])
                 if occurs[inventory['product_id']] > int(inventory['amount']):
-                    return {
-                        "error": "out of stock"
-                    }
+                    logging.info("out of stock")
+                    return False
 
         # check amount
         for product_id, amount in occurs.items():
             inventory = list(filter(lambda x: x['product_id'] == product_id, inventories))
             if not inventory:
-                return {
-                    "error": "could not find inventory"
-                }
+                logging.error("could not find inventory")
+                return False
 
             inventory = inventory[0]
             if int(inventory['amount']) - amount < 0:
-                return {
-                    "error": "out of stock"
-                }
+                logging.info("out of stock")
+                return False
 
             inventory['amount'] = int(inventory['amount']) - amount
 
             # trigger event
             self.event_store.publish('inventory', create_event('entity_updated', inventory))
 
-        return {
-            "result": True
-        }
+        return True
+
+    def cart_created(self, _item):
+        if _item.event_action != 'entity_created':
+            return
+
+        try:
+            cart = json.loads(_item.event_data)
+            result = self.decr_from_carts(cart)
+            # TODO handle error
+        except Exception as e:
+            logging.error(f'cart_created error: {e}')
+
+    def cart_updated(self, _item):
+        if _item.event_action != 'entity_updated':
+            return
+
+        try:
+            new_cart = json.loads(_item.event_data)
+            rsp = send_message('read-model',
+                               'get_one_entity',
+                               {'name': 'cart', 'id': new_cart['entity_id']})
+            old_cart = rsp['result']
+            results = [self.incr_inventory(product_id) for product_id in old_cart['product_ids']]
+            # TODO handle errors
+            result = self.decr_from_carts(new_cart)
+            # TODO handle error
+        except Exception as e:
+            logging.error(f'cart_updated error: {e}')
+
+    def cart_deleted(self, _item):
+        if _item.event_action != 'entity_deleted':
+            return
+
+        try:
+            cart = json.loads(_item.event_data)
+            product_ids = cart['product_ids']
+            results = [self.incr_inventory(product_id) for product_id in product_ids]
+            # TODO handle errors
+        except Exception as e:
+            logging.error(f'cart_deleted error: {e}')
+
+    def subscribe_to_domain_events(self):
+        self.event_store.subscribe('cart', self.cart_created)
+        self.event_store.subscribe('cart', self.cart_updated)
+        self.event_store.subscribe('cart', self.cart_deleted)
+
+    def unsubscribe_from_domain_events(self):
+        self.event_store.unsubscribe('cart', self.cart_created)
+        self.event_store.unsubscribe('cart', self.cart_updated)
+        self.event_store.unsubscribe('cart', self.cart_deleted)
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

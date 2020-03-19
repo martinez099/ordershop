@@ -22,105 +22,137 @@ class CrmService(object):
         self.unsubscribe_from_domain_events()
         logging.info('stopped.')
 
-    def order_created(self, _item):
-        if _item.event_action == 'entity_created':
-            try:
-                msg_data = json.loads(_item.event_data)
-                rsp = send_message('read-model',
-                                   'get_one_entity',
-                                   {'name': 'customer', 'id': msg_data['customer_id']})
-                customer = rsp['result']
-                rsp = send_message('read-model',
-                                   'get_mult_entities',
-                                   {'name': 'product', 'ids': msg_data['product_ids']})
-                products = rsp['result']
-                msg = """Dear {}!
-    
-        Please transfer € {} with your favourite payment method.
-    
-        Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
+    @staticmethod
+    def customer_created(_item):
+        if _item.event_action != 'entity_created':
+            return
 
-                send_message('mail-service', 'send', {
-                    "to": customer['email'],
-                    "msg": msg
-                })
-            except Exception as e:
-                logging.error(f'order_created error: {e}')
+        customer = json.loads(_item.event_data)
+        msg = """Dear {}!
 
-    def billing_created(self, _item):
-        if _item.event_action == 'entity_created':
-            try:
-                msg_data = json.loads(_item.event_data)
-                rsp = send_message('read-model',
-                                   'get_one_entity',
-                                   {'name': 'order', 'id': msg_data['order_id']})
-                order = rsp['result']
-                rsp = send_message('read-model',
-                                   'get_one_entity',
-                                   {'name': 'customer', 'id': order['customer_id']})
-                customer = rsp['result']
-                rsp = send_message('read-model',
-                                   'get_mult_entities',
-                                   {'name': 'product', 'ids': order['product_ids']})
-                products = rsp['result']
-                msg = """Dear {}!
-    
-        We've just received € {} from you, thank you for your transfer.
-    
-        Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
+Welcome to Ordershop.
 
-                send_message('mail-service', 'send', {
-                    "to": customer['email'],
-                    "msg": msg
-                })
-            except Exception as e:
-                logging.error(f'billing_created error: {e}')
+Cheers""".format(customer['name'])
 
-    def customer_created(self, _item):
-        if _item.event_action == 'entity_created':
-            try:
-                msg_data = json.loads(_item.event_data)
-                msg = """Dear {}!
-        
-        Welcome to Ordershop.
-        
-        Cheers""".format(msg_data['name'])
+        send_message('mail-service', 'send', {
+            "to": customer['email'],
+            "msg": msg
+        })
 
-                send_message('mail-service', 'send', {
-                    "to": msg_data['email'],
-                    "msg": msg
-                })
-            except Exception as e:
-                logging.error(f'customer_created error: {e}')
+    @staticmethod
+    def customer_deleted(_item):
+        if _item.event_action != 'entity_deleted':
+            return
 
-    def customer_deleted(self, _item):
-        if _item.event_action == 'entity_deleted':
-            try:
-                msg_data = json.loads(_item.event_data)
-                msg = """Dear {}!
-        
-        Good bye, hope to see you soon again at Ordershop.
-        
-        Cheers""".format(msg_data['name'])
+        customer = json.loads(_item.event_data)
+        msg = """Dear {}!
 
-                send_message('mail-service', 'send', {
-                    "to": msg_data['email'],
-                    "msg": msg
-                })
-            except Exception as e:
-                logging.error(f'customer_deleted error: {e}')
+Good bye, hope to see you soon again at Ordershop.
+
+Cheers""".format(customer['name'])
+
+        send_message('mail-service', 'send', {
+            "to": customer['email'],
+            "msg": msg
+        })
+
+    @staticmethod
+    def order_created(_item):
+        if _item.event_action != 'entity_created':
+            return
+
+        order = json.loads(_item.event_data)
+        rsp = send_message('read-model',
+                           'get_one_entity',
+                           {'name': 'cart', 'id': order['cart_id']})
+        cart = rsp['result']
+        rsp = send_message('read-model',
+                           'get_one_entity',
+                           {'name': 'customer', 'id': cart['customer_id']})
+        customer = rsp['result']
+        rsp = send_message('read-model',
+                           'get_mult_entities',
+                           {'name': 'product', 'ids': cart['product_ids']})
+        products = rsp['result']
+        msg = """Dear {}!
+
+Please transfer € {} with your favourite payment method.
+
+Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
+
+        send_message('mail-service', 'send', {
+            "to": customer['email'],
+            "msg": msg
+        })
+
+
+    @staticmethod
+    def billing_created(_item):
+        if _item.event_action != 'entity_created':
+            return
+
+        billing = json.loads(_item.event_data)
+        rsp = send_message('read-model',
+                           'get_one_entity',
+                           {'name': 'order', 'id': billing['order_id']})
+        order = rsp['result']
+        rsp = send_message('read-model',
+                           'get_one_entity',
+                           {'name': 'customer', 'id': order['customer_id']})
+        customer = rsp['result']
+        rsp = send_message('read-model',
+                           'get_mult_entities',
+                           {'name': 'product', 'ids': order['product_ids']})
+        products = rsp['result']
+        msg = """Dear {}!
+
+We've just received € {} from you, thank you for your transfer.
+
+Cheers""".format(customer['name'], sum([int(product['price']) for product in products]))
+
+        send_message('mail-service', 'send', {
+            "to": customer['email'],
+            "msg": msg
+        })
+
+    @staticmethod
+    def shipping_created(_item):
+        if _item.event_action != 'entity_created':
+            return
+
+        shipping = json.loads(_item.event_data)
+        rsp = send_message('read-model',
+                           'get_one_entity',
+                           {'name': 'order', 'id': shipping['order_id']})
+        order = rsp['result']
+        rsp = send_message('read-model',
+                           'get_one_entity',
+                           {'name': 'customer', 'id': order['customer_id']})
+        customer = rsp['result']
+        msg = """Dear {}!
+
+We've just shipped order {}. It will be soon delivered to you.
+
+Cheers""".format(customer['name'], order['entity_id'])
+
+        send_message('mail-service', 'send', {
+            "to": customer['email'],
+            "msg": msg
+        })
 
     def subscribe_to_domain_events(self):
         self.event_store.subscribe('billing', self.billing_created)
         self.event_store.subscribe('customer', self.customer_created)
         self.event_store.subscribe('customer', self.customer_deleted)
         self.event_store.subscribe('order', self.order_created)
+        self.event_store.subscribe('shipping', self.shipping_created)
 
     def unsubscribe_from_domain_events(self):
         self.event_store.unsubscribe('billing', self.billing_created)
         self.event_store.unsubscribe('customer', self.customer_created)
         self.event_store.unsubscribe('customer', self.customer_deleted)
         self.event_store.unsubscribe('order', self.order_created)
+        self.event_store.unsubscribe('shipping', self.shipping_created)
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
