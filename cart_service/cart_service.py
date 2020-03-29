@@ -32,6 +32,23 @@ class CartService(object):
             'product_ids': _product_ids
         }
 
+    @staticmethod
+    def _check_inventory(_product_ids):
+        occurs = {}
+        for product_id in _product_ids:
+            if product_id not in occurs:
+                occurs[product_id] = 1
+            else:
+                occurs[product_id] += 1
+
+        for product_id, amount in occurs.items():
+            rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': product_id}})
+            inventory = rsp['result'][0]
+            if int(inventory['amount']) - amount < 0:
+                return False, product_id
+
+        return True, None
+
     def start(self):
         logging.info('starting ...')
         self.consumers.start()
@@ -47,6 +64,12 @@ class CartService(object):
         cart_ids = []
 
         for cart in carts:
+            res, product_id = self._check_inventory(cart['product_ids'])
+            if not res:
+                return {
+                    'error': 'product {} is out of stock'.format(product_id)
+                }
+
             try:
                 new_cart = CartService._create_entity(cart['customer_id'], cart['product_ids'])
             except KeyError:
@@ -91,6 +114,12 @@ class CartService(object):
         except KeyError:
             return {
                 "result": "missing mandatory parameter 'customer_id' and/or 'product_ids"
+            }
+
+        res, product_id = self._check_inventory(cart['product_ids'])
+        if not res:
+            return {
+                'error': 'product {} is out of stock'.format(product_id)
             }
 
         # trigger event

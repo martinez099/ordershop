@@ -35,12 +35,14 @@ class InventoryService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.subscribe_to_domain_events()
+        self.event_store.subscribe('order', self.order_created)
+        self.event_store.subscribe('order', self.order_deleted)
         self.consumers.start()
         self.consumers.wait()
 
     def stop(self):
-        self.unsubscribe_from_domain_events()
+        self.event_store.unsubscribe('order', self.order_created)
+        self.event_store.unsubscribe('order', self.order_deleted)
         self.consumers.stop()
         logging.info('stopped.')
 
@@ -134,12 +136,11 @@ class InventoryService(object):
 
         rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
-            logging.error(rsp['error'] + ' (from read-model)')
-            return False
+            raise Exception(rsp['error'] + ' (from read-model)')
 
-        inventory = list(rsp['result'].values())
+        inventory = rsp['result']
         if not inventory:
-            logging.error("could not find inventory")
+            logging.error("could not find inventory for product {}".format(_product_id))
             return False
 
         inventory = inventory[0]
@@ -154,17 +155,16 @@ class InventoryService(object):
 
         rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
-            logging.error(rsp['error'] + ' (from read-model)')
-            return False
+            raise Exception(rsp['error'] + ' (from read-model)')
 
-        inventory = list(rsp['result'].values())
+        inventory = rsp['result']
         if not inventory:
-            logging.error("could not find inventory")
+            logging.info("could not find inventory for product {}".format(_product_id))
             return False
 
         inventory = inventory[0]
         if int(inventory['amount']) - (_value if _value else 1) < 0:
-            logging.info("out of stock")
+            logging.info("product {} is out of stock".format(_product_id))
             return False
 
         inventory['amount'] = int(inventory['amount']) - (_value if _value else 1)
@@ -174,47 +174,43 @@ class InventoryService(object):
 
         return True
 
-    def decr_from_carts(self, _orders):
+    def decr_from_carts(self, _carts):
 
-        orders = _orders if isinstance(_orders, list) else [_orders]
+        carts = _carts if isinstance(_carts, list) else [_carts]
 
         rsp = send_message('read-model', 'get_entities', {'name': 'inventory'})
         if 'error' in rsp:
-            logging.error(rsp['error'] + ' (from read-model)')
-            return False
+            raise Exception(rsp['error'] + ' (from read-model)')
 
         inventories = rsp['result']
-
         occurs = {}
 
-        # calc amount
-        for order in orders:
+        for cart in carts:
             try:
-                product_ids = order['product_ids']
+                product_ids = cart['product_ids']
             except KeyError:
-                logging.error("missing mandatory parameter 'product_ids'")
-                return False
+                raise Exception("missing mandatory parameter 'product_ids'")
 
             for inventory in inventories:
-
                 if not inventory['product_id'] in occurs:
                     occurs[inventory['product_id']] = 0
 
+                # check amount
                 occurs[inventory['product_id']] += product_ids.count(inventory['product_id'])
                 if occurs[inventory['product_id']] > int(inventory['amount']):
-                    logging.info("out of stock")
+                    logging.info("product {} is out of stock".format(inventory['product_id']))
                     return False
 
-        # check amount
         for product_id, amount in occurs.items():
             inventory = list(filter(lambda x: x['product_id'] == product_id, inventories))
             if not inventory:
-                logging.error("could not find inventory")
+                logging.info("could not find inventory for product {}".format(product_id))
                 return False
 
+            # check amount
             inventory = inventory[0]
             if int(inventory['amount']) - amount < 0:
-                logging.info("out of stock")
+                logging.info("product {} is out of stock".format(product_id))
                 return False
 
             inventory['amount'] = int(inventory['amount']) - amount
@@ -224,53 +220,35 @@ class InventoryService(object):
 
         return True
 
-    def cart_created(self, _item):
+    def order_created(self, _item):
         if _item.event_action != 'entity_created':
             return
 
         try:
-            cart = json.loads(_item.event_data)
+            order = json.loads(_item.event_data)
+            rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': order['cart_id']})
+            cart = rsp['result']
             result = self.decr_from_carts(cart)
-            # TODO handle error
+            if not result:
+                order['status'] = 'CANCELLED:OUT_OF_STOCK'
+            else:
+                order['status'] = 'PENDING:STOCK_CLEARED'
+            self.event_store.publish('order', create_event('entity_updated'), order)
         except Exception as e:
             logging.error(f'cart_created error: {e}')
 
-    def cart_updated(self, _item):
-        if _item.event_action != 'entity_updated':
-            return
-
-        try:
-            new_cart = json.loads(_item.event_data)
-            rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': new_cart['entity_id']})
-            old_cart = rsp['result']
-            results = [self.incr_inventory(product_id) for product_id in old_cart['product_ids']]
-            # TODO handle errors
-            result = self.decr_from_carts(new_cart)
-            # TODO handle error
-        except Exception as e:
-            logging.error(f'cart_updated error: {e}')
-
-    def cart_deleted(self, _item):
+    def order_deleted(self, _item):
         if _item.event_action != 'entity_deleted':
             return
 
         try:
-            cart = json.loads(_item.event_data)
-            product_ids = cart['product_ids']
-            results = [self.incr_inventory(product_id) for product_id in product_ids]
-            # TODO handle errors
+            order = json.loads(_item.event_data)
+            if order['status'] == 'PENDING:STOCK_CLEARED':
+                rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': order['cart_id']})
+                cart = rsp['result']
+                [self.incr_inventory(product_id) for product_id in cart['product_ids']]
         except Exception as e:
             logging.error(f'cart_deleted error: {e}')
-
-    def subscribe_to_domain_events(self):
-        self.event_store.subscribe('cart', self.cart_created)
-        self.event_store.subscribe('cart', self.cart_updated)
-        self.event_store.subscribe('cart', self.cart_deleted)
-
-    def unsubscribe_from_domain_events(self):
-        self.event_store.unsubscribe('cart', self.cart_created)
-        self.event_store.unsubscribe('cart', self.cart_updated)
-        self.event_store.unsubscribe('cart', self.cart_deleted)
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

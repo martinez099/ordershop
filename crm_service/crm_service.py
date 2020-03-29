@@ -16,10 +16,18 @@ class CrmService(object):
 
     def start(self):
         logging.info('starting ...')
-        self.subscribe_to_domain_events()
+        self.event_store.subscribe('billing', self.billing_created)
+        self.event_store.subscribe('customer', self.customer_created)
+        self.event_store.subscribe('customer', self.customer_deleted)
+        self.event_store.subscribe('order', self.order_created)
+        self.event_store.subscribe('shipping', self.shipping_created)
 
     def stop(self):
-        self.unsubscribe_from_domain_events()
+        self.event_store.unsubscribe('billing', self.billing_created)
+        self.event_store.unsubscribe('customer', self.customer_created)
+        self.event_store.unsubscribe('customer', self.customer_deleted)
+        self.event_store.unsubscribe('order', self.order_created)
+        self.event_store.unsubscribe('shipping', self.shipping_created)
         logging.info('stopped.')
 
     @staticmethod
@@ -79,7 +87,6 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
             "msg": msg
         })
 
-
     @staticmethod
     def billing_created(_item):
         if _item.event_action != 'entity_created':
@@ -123,20 +130,6 @@ Cheers""".format(customer['name'], order['entity_id'])
             "to": customer['email'],
             "msg": msg
         })
-
-    def subscribe_to_domain_events(self):
-        self.event_store.subscribe('billing', self.billing_created)
-        self.event_store.subscribe('customer', self.customer_created)
-        self.event_store.subscribe('customer', self.customer_deleted)
-        self.event_store.subscribe('order', self.order_created)
-        self.event_store.subscribe('shipping', self.shipping_created)
-
-    def unsubscribe_from_domain_events(self):
-        self.event_store.unsubscribe('billing', self.billing_created)
-        self.event_store.unsubscribe('customer', self.customer_created)
-        self.event_store.unsubscribe('customer', self.customer_deleted)
-        self.event_store.unsubscribe('order', self.order_created)
-        self.event_store.unsubscribe('shipping', self.shipping_created)
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

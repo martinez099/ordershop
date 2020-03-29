@@ -1,4 +1,5 @@
 import logging
+import json
 import signal
 import uuid
 
@@ -18,7 +19,7 @@ class OrderService(object):
                                                      self.delete_order])
 
     @staticmethod
-    def _create_entity(_cart_id, _status='PENDING'):
+    def _create_entity(_cart_id, _status='PENDING:CREATED'):
         """
         Create an order entity.
 
@@ -34,10 +35,18 @@ class OrderService(object):
 
     def start(self):
         logging.info('starting ...')
+        self.event_store.subscribe('billing', self.billing_created)
+        self.event_store.subscribe('billing', self.billing_deleted)
+        self.event_store.subscribe('shipping', self.shipping_created)
+        self.event_store.subscribe('shipping', self.shipping_updated)
         self.consumers.start()
         self.consumers.wait()
 
     def stop(self):
+        self.event_store.unsubscribe('billing', self.billing_created)
+        self.event_store.unsubscribe('billing', self.billing_deleted)
+        self.event_store.unsubscribe('shipping', self.shipping_created)
+        self.event_store.unsubscribe('shipping', self.shipping_updated)
         self.consumers.stop()
         logging.info('stopped.')
 
@@ -126,6 +135,47 @@ class OrderService(object):
         return {
             "result": True
         }
+
+    def billing_created(self, _item):
+        if _item.event_action != 'entity_created':
+            return
+
+        billing = json.loads(_item.event_data)
+        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
+        order = rsp['result']
+        order['status'] = 'PENDING:PAYMENT_RECEIVED'
+        self.event_store.publish('order', create_event('entity_updated', order))
+
+    def billing_deleted(self, _item):
+        if _item.event_action != 'entity_delted':
+            return
+
+        billing = json.loads(_item.event_data)
+        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
+        order = rsp['result']
+        order['status'] = 'PENDING:PAYMENT_CANCELLED'
+        self.event_store.publish('order', create_event('entity_updated', order))
+
+    def shipping_created(self, _item):
+        if _item.event_action != 'entity_created':
+            return
+
+        shipping = json.loads(_item.event_data)
+        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
+        order = rsp['result']
+        order['status'] = 'DONE:SHIPPED'
+        self.event_store.publish('order', create_event('entity_updated', order))
+
+    def shipping_updated(self, _item):
+        if _item.event_action != 'entity_updated':
+            return
+
+        shipping = json.loads(_item.event_data)
+        if shipping['done']:
+            rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
+            order = rsp['result']
+            order['status'] = 'DONE:DELIVERED'
+            self.event_store.publish('order', create_event('entity_updated', order))
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

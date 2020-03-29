@@ -134,12 +134,8 @@ class ShippingService(object):
         if _item.event_action != 'entity_created':
             return
 
-        try:
-            billing = json.loads(_item.event_data)
-            result = self.create_shippings({'order_id': billing['order_id']})
-            # TODO handle error
-        except Exception as e:
-            logging.error(f'billing_created error: {e}')
+        billing = json.loads(_item.event_data)
+        self.create_shippings({'order_id': billing['order_id']})
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

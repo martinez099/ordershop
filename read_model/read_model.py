@@ -109,7 +109,7 @@ class ReadModel(object):
 
         elif 'props' in _req and isinstance(_req['props'], dict):
             return {
-                'result': self._query_spec_entities(_req['name'], _req['props'])
+                'result': list(self._query_spec_entities(_req['name'], _req['props']).values())
             }
 
         else:
