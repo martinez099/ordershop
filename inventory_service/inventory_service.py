@@ -75,7 +75,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_one_entity', {'name': 'inventory', 'id': inventory_id})
+        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'id': inventory_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -112,7 +112,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_one_entity', {'name': 'inventory', 'id': inventory_id})
+        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'id': inventory_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -132,9 +132,7 @@ class InventoryService(object):
 
     def incr_inventory(self, _product_id, _value=1):
 
-        rsp = send_message('read-model',
-                           'get_spec_entities',
-                           {'name': 'inventory', 'props': {'product_id': _product_id}})
+        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
             logging.error(rsp['error'] + ' (from read-model)')
             return False
@@ -154,9 +152,7 @@ class InventoryService(object):
 
     def decr_inventory(self, _product_id, _value=1):
 
-        rsp = send_message('read-model',
-                           'get_spec_entities',
-                           {'name': 'inventory', 'props': {'product_id': _product_id}})
+        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
             logging.error(rsp['error'] + ' (from read-model)')
             return False
@@ -182,12 +178,12 @@ class InventoryService(object):
 
         orders = _orders if isinstance(_orders, list) else [_orders]
 
-        rsp = send_message('read-model', 'get_all_entities', {'name': 'inventory'})
+        rsp = send_message('read-model', 'get_entities', {'name': 'inventory'})
         if 'error' in rsp:
             logging.error(rsp['error'] + ' (from read-model)')
             return False
 
-        inventories = rsp['result'].values()
+        inventories = rsp['result']
 
         occurs = {}
 
@@ -245,9 +241,7 @@ class InventoryService(object):
 
         try:
             new_cart = json.loads(_item.event_data)
-            rsp = send_message('read-model',
-                               'get_one_entity',
-                               {'name': 'cart', 'id': new_cart['entity_id']})
+            rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': new_cart['entity_id']})
             old_cart = rsp['result']
             results = [self.incr_inventory(product_id) for product_id in old_cart['product_ids']]
             # TODO handle errors

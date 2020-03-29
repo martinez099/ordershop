@@ -72,7 +72,7 @@ class OrderService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_one_entity', {'name': 'order', 'id': order_id})
+        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': order_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -109,7 +109,7 @@ class OrderService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_one_entity', {'name': 'order', 'id': order_id})
+        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': order_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp

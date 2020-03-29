@@ -14,10 +14,7 @@ class ReadModel(object):
 
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.consumers = Consumers('read-model', [self.get_all_entities,
-                                                  self.get_mult_entities,
-                                                  self.get_spec_entities,
-                                                  self.get_one_entity,
+        self.consumers = Consumers('read-model', [self.get_entities,
                                                   self.get_unbilled_orders,
                                                   self.get_unshipped_orders])
         self.cache = {}
@@ -94,25 +91,31 @@ class ReadModel(object):
         self.consumers.stop()
         logging.info('stopped.')
 
-    def get_all_entities(self, _req):
-        return {
-            'result': self._query_entities(_req['name'])
-        }
+    def get_entities(self, _req):
+        if 'name' not in _req:
+            return {
+                "error": "missing mandatory parameter 'name'"
+            }
 
-    def get_mult_entities(self, _req):
-        return {
-            'result': [self._query_entities(_req['name']).get(_id) for _id in _req['ids']]
-        }
+        if 'id' in _req and isinstance(_req['id'], str):
+            return {
+                'result': self._query_entities(_req['name']).get(_req['id'])
+            }
 
-    def get_spec_entities(self, _req):
-        return {
-            'result': self._query_spec_entities(_req['name'], _req['props'])
-        }
+        elif 'ids' in _req and isinstance(_req['ids'], list):
+            return {
+                'result': [self._query_entities(_req['name']).get(_id) for _id in _req['ids']]
+            }
 
-    def get_one_entity(self, _req):
-        return {
-            'result': self._query_entities(_req['name']).get(_req['id'])
-        }
+        elif 'props' in _req and isinstance(_req['props'], dict):
+            return {
+                'result': self._query_spec_entities(_req['name'], _req['props'])
+            }
+
+        else:
+            return {
+                'result': list(self._query_entities(_req['name']).values())
+            }
 
     def get_unbilled_orders(self, _req):
         return {

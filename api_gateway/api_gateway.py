@@ -18,7 +18,6 @@ def _send_message(service_name, func_name, add_params=None):
     :param add_params: A dict with optional additional parameters.
     :return: A dict with the result response.
     """
-
     params = {}
     if request.data:
         params = json.loads(request.data)
@@ -37,14 +36,13 @@ def _read_model(entitiy_name, entity_id=None):
     :param entity_id: An optional entitiy_id.
     :return: A dict with the result response.
     """
-
+    params = {
+        'name': entitiy_name
+    }
     if entity_id:
-        return _send_message('read-model', 'get_one_entity', {'name': entitiy_name, 'id': entity_id})
-    else:
-        entities = _send_message('read-model', 'get_all_entities', {'name': entitiy_name})
-        return {
-            'result': list(entities['result'].values())
-        }
+        params['id'] = entity_id
+
+    return _send_message('read-model', 'get_entities', params)
 
 
 @app.route('/billings', methods=['GET'])
