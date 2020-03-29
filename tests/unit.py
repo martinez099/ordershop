@@ -159,7 +159,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertEqual(len(unbilled_orders), 8)
 
-    def test_k_update_shipping(self):
+    def test_k_confirm_shipping(self):
 
         # load shippings
         rsp = request.urlopen('{}/shippings'.format(BASE_URL))

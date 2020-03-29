@@ -3,7 +3,7 @@ import logging
 import signal
 import uuid
 
-from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
+from event_store.event_store_client import EventStoreClient, create_event
 from message_queue.message_queue_client import Consumers, send_message
 
 

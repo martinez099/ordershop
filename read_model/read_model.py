@@ -1,8 +1,9 @@
 import functools
+import json
 import logging
 import signal
 
-from event_store.event_store_client import EventStoreClient, create_event, deduce_entities, track_entities
+from event_store.event_store_client import EventStoreClient, create_event
 from message_queue.message_queue_client import Consumers
 
 
@@ -21,6 +22,66 @@ class ReadModel(object):
                                                   self.get_unshipped_orders])
         self.cache = {}
         self.subscriptions = {}
+
+    @staticmethod
+    def _deduce_entities(_events):
+        """
+        Deduce entities from events.
+
+        :param _events: A list with events.
+        :return: A dict mapping entity ID -> entity data.
+        """
+        if not _events:
+            return {}
+
+        # get 'created' events
+        result = {json.loads(e[1]['event_data'])['entity_id']: json.loads(e[1]['event_data'])
+                  for e in filter(lambda x: x[1]['event_action'] == 'entity_created', _events)}
+
+        # del 'deleted' events
+        deleted = {json.loads(e[1]['event_data'])['entity_id']: json.loads(e[1]['event_data'])
+                   for e in filter(lambda x: x[1]['event_action'] == 'entity_deleted', _events)}
+
+        for d_id, d_data in deleted.items():
+            del result[d_id]
+
+        # set 'updated' events
+        updated = {json.loads(e[1]['event_data'])['entity_id']: json.loads(e[1]['event_data'])
+                   for e in filter(lambda x: x[1]['event_action'] == 'entity_updated', _events)}
+
+        for u_id, u_data in updated.items():
+            result[u_id] = u_data
+
+        return result
+
+    @staticmethod
+    def _track_entities(_entities, _event):
+        """
+        Keep track of entity events.
+
+        :param _entities: A dict with entities, mapping entity ID -> entity data.
+        :param _event: The event entry.
+        """
+        if _event.event_action == 'entity_created':
+            event_data = json.loads(_event.event_data)
+            if event_data['entity_id'] in _entities:
+                raise Exception('could not deduce created event')
+
+            _entities[event_data['entity_id']] = event_data
+
+        if _event.event_action == 'entity_deleted':
+            event_data = json.loads(_event.event_data)
+            if event_data['entity_id'] not in _entities:
+                raise Exception('could not deduce deleted event')
+
+            del _entities[event_data['entity_id']]
+
+        if _event.event_action == 'entity_updated':
+            event_data = json.loads(_event.event_data)
+            if event_data['entity_id'] not in _entities:
+                raise Exception('could not deduce updated event')
+
+            _entities[event_data['entity_id']] = event_data
 
     def start(self):
         logging.info('starting ...')
@@ -75,13 +136,13 @@ class ReadModel(object):
 
         # deduce entities
         events = self.event_store.get(_name)
-        entities = deduce_entities(events)
+        entities = self._deduce_entities(events)
 
         # cache entities
         self.cache[_name] = entities
 
         # track entities
-        tracking_handler = functools.partial(track_entities, entities)
+        tracking_handler = functools.partial(self._track_entities, entities)
         self.event_store.subscribe(_name, tracking_handler)
         self.subscriptions[_name] = tracking_handler
 
