@@ -2,7 +2,7 @@ apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
   annotations:
-    kompose.cmd: kompose convert -f ../docker-compose.yml
+    kompose.cmd: kompose -f ../docker-compose.yml convert
     kompose.version: 1.20.0 ()
   creationTimestamp: null
   labels:
@@ -14,7 +14,7 @@ spec:
   template:
     metadata:
       annotations:
-        kompose.cmd: kompose convert -f ../docker-compose.yml
+        kompose.cmd: kompose -f ../docker-compose.yml convert
         kompose.version: 1.20.0 ()
       creationTimestamp: null
       labels:
@@ -26,7 +26,7 @@ spec:
           value: event-store
         - name: MESSAGE_QUEUE_HOSTNAME
           value: message-queue
-        image: eu.gcr.io/central-beach-194106/order-service:latest
+        image: eu.gcr.io/central-beach-194106/ordershop/order-service:latest
         name: order-service
         resources: {}
       restartPolicy: Always
