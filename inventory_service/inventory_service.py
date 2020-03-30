@@ -233,7 +233,7 @@ class InventoryService(object):
                 order['status'] = 'CANCELLED:OUT_OF_STOCK'
             else:
                 order['status'] = 'PENDING:STOCK_CLEARED'
-            self.event_store.publish('order', create_event('entity_updated'), order)
+            self.event_store.publish('order', create_event('entity_updated', order))
         except Exception as e:
             logging.error(f'cart_created error: {e}')
 

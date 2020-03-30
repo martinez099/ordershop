@@ -95,9 +95,11 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
         billing = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
         order = rsp['result']
-        rsp = send_message('read-model', 'get_entities', {'name': 'customer', 'id': order['customer_id']})
+        rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': order['cart_id']})
+        cart = rsp['result']
+        rsp = send_message('read-model', 'get_entities', {'name': 'customer', 'id': cart['customer_id']})
         customer = rsp['result']
-        rsp = send_message('read-model', 'get_entities', {'name': 'product', 'ids': order['product_ids']})
+        rsp = send_message('read-model', 'get_entities', {'name': 'product', 'ids': cart['product_ids']})
         products = rsp['result']
         msg = """Dear {}!
 
@@ -118,7 +120,9 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
         shipping = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
         order = rsp['result']
-        rsp = send_message('read-model', 'get_entities', {'name': 'customer', 'id': order['customer_id']})
+        rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': order['cart_id']})
+        cart = rsp['result']
+        rsp = send_message('read-model', 'get_entities', {'name': 'customer', 'id': cart['customer_id']})
         customer = rsp['result']
         msg = """Dear {}!
 
