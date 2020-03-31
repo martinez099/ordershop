@@ -97,9 +97,11 @@ services:
     environment:
       - EVENT_STORE_HOSTNAME=event-store
       - MESSAGE_QUEUE_HOSTNAME=message-queue
+      - READ_MODEL_REDIS_HOST=redis
     depends_on:
       - event-store
       - message-queue
+      - redis
   event-store:
     build: "./event_store"
     image: eu.gcr.io/central-beach-194106/ordershop/event-store:latest

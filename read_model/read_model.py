@@ -1,8 +1,13 @@
 import functools
 import json
 import logging
+import os
 import signal
+import threading
 
+import redis
+
+from domain_model import DomainModel
 from event_store.event_store_client import EventStoreClient, create_event
 from message_queue.message_queue_client import Consumers
 
@@ -12,13 +17,16 @@ class ReadModel(object):
     Read Model class.
     """
 
-    def __init__(self):
+    def __init__(self, _redis_host='localhost', _redis_port=6379):
         self.event_store = EventStoreClient()
         self.consumers = Consumers('read-model', [self.get_entities,
                                                   self.get_unbilled_orders,
                                                   self.get_unshipped_orders])
-        self.cache = {}
+        self.domain_model = DomainModel(
+            redis.StrictRedis(host=_redis_host, port=_redis_port, decode_responses=True)
+        )
         self.subscriptions = {}
+        self.locks = {}
 
     @staticmethod
     def _deduce_entities(_events):
@@ -31,18 +39,18 @@ class ReadModel(object):
         if not _events:
             return {}
 
-        # get 'created' events
+        # find 'created' events
         result = {json.loads(e[1]['event_data'])['entity_id']: json.loads(e[1]['event_data'])
                   for e in filter(lambda x: x[1]['event_action'] == 'entity_created', _events)}
 
-        # del 'deleted' events
+        # remove 'deleted' events
         deleted = {json.loads(e[1]['event_data'])['entity_id']: json.loads(e[1]['event_data'])
                    for e in filter(lambda x: x[1]['event_action'] == 'entity_deleted', _events)}
 
         for d_id, d_data in deleted.items():
             del result[d_id]
 
-        # set 'updated' events
+        # change 'updated' events
         updated = {json.loads(e[1]['event_data'])['entity_id']: json.loads(e[1]['event_data'])
                    for e in filter(lambda x: x[1]['event_action'] == 'entity_updated', _events)}
 
@@ -51,81 +59,29 @@ class ReadModel(object):
 
         return result
 
-    @staticmethod
-    def _track_entities(_entities, _event):
+    def _track_entities(self, _name, _event):
         """
         Keep track of entity events.
 
-        :param _entities: A dict with entities, mapping entity ID -> entity data.
-        :param _event: The event entry.
+        :param _name: The entity name.
+        :param _event: The event data.
         """
-        if _event.event_action == 'entity_created':
-            event_data = json.loads(_event.event_data)
-            if event_data['entity_id'] in _entities:
-                raise Exception('could not deduce created event')
+        if not self.domain_model.exists(_name):
+            return
 
-            _entities[event_data['entity_id']] = event_data
+        entity = json.loads(_event.event_data)
+
+        if _event.event_action == 'entity_created':
+            logging.info('CREATED')
+            self.domain_model.create(_name, entity)
 
         if _event.event_action == 'entity_deleted':
-            event_data = json.loads(_event.event_data)
-            if event_data['entity_id'] not in _entities:
-                raise Exception('could not deduce deleted event')
-
-            del _entities[event_data['entity_id']]
+            logging.info('DELETED')
+            self.domain_model.delete(_name, entity)
 
         if _event.event_action == 'entity_updated':
-            event_data = json.loads(_event.event_data)
-            if event_data['entity_id'] not in _entities:
-                raise Exception('could not deduce updated event')
-
-            _entities[event_data['entity_id']] = event_data
-
-    def start(self):
-        logging.info('starting ...')
-        self.consumers.start()
-        self.consumers.wait()
-
-    def stop(self):
-        for name, handler in self.subscriptions.items():
-            self.event_store.unsubscribe(name, handler)
-        self.consumers.stop()
-        logging.info('stopped.')
-
-    def get_entities(self, _req):
-        if 'name' not in _req:
-            return {
-                "error": "missing mandatory parameter 'name'"
-            }
-
-        if 'id' in _req and isinstance(_req['id'], str):
-            return {
-                'result': self._query_entities(_req['name']).get(_req['id'])
-            }
-
-        elif 'ids' in _req and isinstance(_req['ids'], list):
-            return {
-                'result': [self._query_entities(_req['name']).get(_id) for _id in _req['ids']]
-            }
-
-        elif 'props' in _req and isinstance(_req['props'], dict):
-            return {
-                'result': list(self._query_spec_entities(_req['name'], _req['props']).values())
-            }
-
-        else:
-            return {
-                'result': list(self._query_entities(_req['name']).values())
-            }
-
-    def get_unbilled_orders(self, _req):
-        return {
-            'result': self._unbilled_orders()
-        }
-
-    def get_unshipped_orders(self, _req):
-        return {
-            'result': self._unshipped_orders()
-        }
+            logging.info('UPDATED')
+            self.domain_model.update(_name, entity)
 
     def _query_entities(self, _name):
         """
@@ -134,22 +90,27 @@ class ReadModel(object):
         :param _name: The entity name.
         :return: A dict mapping entity ID -> entity.
         """
-        if _name in self.cache:
-            return self.cache[_name]
+        if self.domain_model.exists(_name):
+            return self.domain_model.retrieve(_name)
 
-        # deduce entities
-        events = self.event_store.get(_name)
-        entities = self._deduce_entities(events)
+        if _name not in self.locks:
+            self.locks[_name] = threading.Lock()
 
-        # cache entities
-        self.cache[_name] = entities
+        with self.locks[_name]:
 
-        # track entities
-        tracking_handler = functools.partial(self._track_entities, entities)
-        self.event_store.subscribe(_name, tracking_handler)
-        self.subscriptions[_name] = tracking_handler
+            # deduce entities
+            events = self.event_store.get(_name)
+            entities = self._deduce_entities(events)
 
-        return entities
+            # cache entities
+            [self.domain_model.create(_name, entity) for entity in entities.values()]
+
+            # track entities
+            tracking_handler = functools.partial(self._track_entities, _name)
+            self.event_store.subscribe(_name, tracking_handler)
+            self.subscriptions[_name] = tracking_handler
+
+            return entities
 
     def _query_spec_entities(self, _name, _props):
         """
@@ -200,7 +161,7 @@ class ReadModel(object):
 
         unshipped = orders.copy()
         for shipping_id, shipping in shipping.items():
-            order_ids_to_remove = list(filter(lambda x: x == shipping['order_id'] and shipping['done'], orders))
+            order_ids_to_remove = list(filter(lambda x: x == shipping['order_id'] and shipping['delivered'], orders))
             if not order_ids_to_remove:
                 raise Exception(f'could not find order {shipping["order_id"]} for shipping {shipping_id}')
 
@@ -211,10 +172,57 @@ class ReadModel(object):
 
         return unshipped
 
+    def start(self):
+        logging.info('starting ...')
+        self.consumers.start()
+        self.consumers.wait()
+
+    def stop(self):
+        for name, handler in self.subscriptions.items():
+            self.event_store.unsubscribe(name, handler)
+        self.consumers.stop()
+        logging.info('stopped.')
+
+    def get_entities(self, _req):
+        if 'name' not in _req:
+            return {
+                "error": "missing mandatory parameter 'name'"
+            }
+
+        if 'id' in _req and isinstance(_req['id'], str):
+            return {
+                'result': self._query_entities(_req['name']).get(_req['id'])
+            }
+
+        elif 'ids' in _req and isinstance(_req['ids'], list):
+            return {
+                'result': [self._query_entities(_req['name']).get(_id) for _id in _req['ids']]
+            }
+
+        elif 'props' in _req and isinstance(_req['props'], dict):
+            return {
+                'result': list(self._query_spec_entities(_req['name'], _req['props']).values())
+            }
+
+        else:
+            return {
+                'result': list(self._query_entities(_req['name']).values())
+            }
+
+    def get_unbilled_orders(self, _req):
+        return {
+            'result': self._unbilled_orders()
+        }
+
+    def get_unshipped_orders(self, _req):
+        return {
+            'result': self._unshipped_orders()
+        }
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
-r = ReadModel()
+r = ReadModel(_redis_host=os.getenv('READ_MODEL_REDIS_HOST', 'localhost'))
 
 signal.signal(signal.SIGINT, lambda n, h: r.stop())
 signal.signal(signal.SIGTERM, lambda n, h: r.stop())

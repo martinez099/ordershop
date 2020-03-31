@@ -230,9 +230,9 @@ class InventoryService(object):
             cart = rsp['result']
             result = self.decr_from_carts(cart)
             if not result:
-                order['status'] = 'CANCELLED:OUT_OF_STOCK'
+                order['status'] = 'OUT_OF_STOCK'
             else:
-                order['status'] = 'PENDING:STOCK_CLEARED'
+                order['status'] = 'IN_STOCK'
             self.event_store.publish('order', create_event('entity_updated', order))
         except Exception as e:
             logging.error(f'cart_created error: {e}')
@@ -243,7 +243,7 @@ class InventoryService(object):
 
         try:
             order = json.loads(_item.event_data)
-            if order['status'] == 'PENDING:STOCK_CLEARED':
+            if order['status'] == 'IN_STOCK':
                 rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': order['cart_id']})
                 cart = rsp['result']
                 [self.incr_inventory(product_id) for product_id in cart['product_ids']]

@@ -19,7 +19,7 @@ class OrderService(object):
                                                      self.delete_order])
 
     @staticmethod
-    def _create_entity(_cart_id, _status='PENDING:CREATED'):
+    def _create_entity(_cart_id, _status='PENDING'):
         """
         Create an order entity.
 
@@ -143,7 +143,7 @@ class OrderService(object):
         billing = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
         order = rsp['result']
-        order['status'] = 'PENDING:PAYMENT_RECEIVED'
+        order['status'] = 'CLEARED'
         self.event_store.publish('order', create_event('entity_updated', order))
 
     def billing_deleted(self, _item):
@@ -153,7 +153,7 @@ class OrderService(object):
         billing = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
         order = rsp['result']
-        order['status'] = 'PENDING:PAYMENT_CANCELLED'
+        order['status'] = 'UNCLEARED'
         self.event_store.publish('order', create_event('entity_updated', order))
 
     def shipping_created(self, _item):
@@ -163,7 +163,7 @@ class OrderService(object):
         shipping = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
         order = rsp['result']
-        order['status'] = 'DONE:SHIPPED'
+        order['status'] = 'SHIPPED'
         self.event_store.publish('order', create_event('entity_updated', order))
 
     def shipping_updated(self, _item):
@@ -171,10 +171,10 @@ class OrderService(object):
             return
 
         shipping = json.loads(_item.event_data)
-        if shipping['done']:
+        if shipping['delivered']:
             rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
             order = rsp['result']
-            order['status'] = 'DONE:DELIVERED'
+            order['status'] = 'DELIVERED'
             self.event_store.publish('order', create_event('entity_updated', order))
 
 

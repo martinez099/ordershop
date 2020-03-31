@@ -19,18 +19,18 @@ class ShippingService(object):
                                                         self.delete_shipping])
 
     @staticmethod
-    def _create_entity(_order_id, _done=False):
+    def _create_entity(_order_id, _delivered=0):
         """
         Create a shipping entity.
 
         :param _order_id: The order which is shipped.
-        :param _done: Boolean indicating fullfillment, defaults to False.
+        :param _delivered: TS indicating delivery.
         :return: A dict with the entity properties.
         """
         return {
             'entity_id': str(uuid.uuid4()),
             'order_id': _order_id,
-            'done': _done
+            'delivered': _delivered
         }
 
     def start(self):
@@ -54,7 +54,7 @@ class ShippingService(object):
                 new_shipping = ShippingService._create_entity(shipping['order_id'])
             except KeyError:
                 return {
-                    "error": "missing mandatory parameter 'order_id' and/or 'method'"
+                    "error": "missing mandatory parameter 'order_id' and/or 'delivered'"
                 }
 
             # trigger event
@@ -90,10 +90,10 @@ class ShippingService(object):
         shipping['entity_id'] = shipping_id
         try:
             shipping['order_id'] = _req['order_id']
-            shipping['done'] = _req['done']
+            shipping['delivered'] = _req['delivered']
         except KeyError:
             return {
-                "result": "missing mandatory parameter 'order_id' and/or 'done"
+                "result": "missing mandatory parameter 'order_id' and/or 'delivered"
             }
 
         # trigger event

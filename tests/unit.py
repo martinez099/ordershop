@@ -1,4 +1,5 @@
 import pprint
+import time
 import unittest
 
 from urllib import request
@@ -166,7 +167,7 @@ class OrderShopTestCase(unittest.TestCase):
         shippings = get_result(rsp)
 
         # update first shipping
-        shippings[0]['done'] = True
+        shippings[0]['delivered'] = time.time()
         rsp = http_cmd_req('{}/shipping/{}'.format(BASE_URL, shippings[0]['entity_id']), shippings[0], 'PUT')
         updated = get_result(rsp)
 
