@@ -135,7 +135,8 @@ class ShippingService(object):
             return
 
         billing = json.loads(_item.event_data)
-        self.create_shippings({'order_id': billing['order_id']})
+        shipping = ShippingService._create_entity(billing['order_id'])
+        self.event_store.publish('shipping', create_event('entity_created', shipping))
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

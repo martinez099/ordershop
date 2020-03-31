@@ -1,7 +1,6 @@
 import json
 
-from flask import request
-from flask import Flask
+from flask import Flask, request, render_template
 
 from message_queue.message_queue_client import send_message
 
@@ -43,6 +42,12 @@ def _read_model(entitiy_name, entity_id=None):
         params['id'] = entity_id
 
     return _send_message('read-model', 'get_entities', params)
+
+
+@app.route('/', methods=['GET'])
+def get():
+
+    return render_template('index.html')
 
 
 @app.route('/billings', methods=['GET'])

@@ -7,6 +7,7 @@ RUN pip install flask
 RUN mkdir -p /app
 
 COPY api_gateway.py /app/
+COPY templates /app/templates
 
 ENV FLASK_ENV development
 ENV FLASK_APP /app/api_gateway/api_gateway.py

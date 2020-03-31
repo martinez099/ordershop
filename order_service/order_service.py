@@ -25,6 +25,7 @@ class OrderService(object):
 
         :param _cart_id: The cart ID the order is for.
         :param _status: The current status of the order, defaults to PENDING.
+                        Other options are OUT_OF_STOCK, IN_STOCK, CLEARED, UNCLEARED, SHIPPED and DELIVERED.
         :return: A dict with the entity properties.
         """
         return {
@@ -171,11 +172,13 @@ class OrderService(object):
             return
 
         shipping = json.loads(_item.event_data)
-        if shipping['delivered']:
-            rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
-            order = rsp['result']
-            order['status'] = 'DELIVERED'
-            self.event_store.publish('order', create_event('entity_updated', order))
+        if not shipping['delivered']:
+            return
+
+        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
+        order = rsp['result']
+        order['status'] = 'DELIVERED'
+        self.event_store.publish('order', create_event('entity_updated', order))
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
