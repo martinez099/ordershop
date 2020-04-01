@@ -3,9 +3,20 @@
   <head>
     <meta charset="utf-8">
     <title>OrderShop v2</title>
+    <script src="{{ url_for('static', filename='jquery-3.4.1.js') }}"></script>
+    <script src="{{ url_for('static', filename='json-viewer-1.4.0/jquery.json-viewer.js') }}"></script>
+    <link href="{{ url_for('static', filename='json-viewer-1.4.0/jquery.json-viewer.css') }}" type="text/css" rel="stylesheet">
   </head>
   <body>
     <h1>Weclome to OrderShop v2</h1>
-    <p>This should be fun!</p>
+      <h2>Report</h2>
+      <pre id="report"></pre>
+      <script>
+        $.ajax({
+          url: 'http://localhost:5000/report'
+        }).done(function(data) {
+          $('#report').jsonViewer(data.result);
+        });
+      </script>
   </body>
 </html>
