@@ -1,8 +1,10 @@
 FROM python:3
 
+RUN pip install eventlet
 RUN pip install grpcio
 RUN pip install grpcio-tools
 RUN pip install flask
+RUN pip install flask-socketio
 
 RUN mkdir -p /app
 

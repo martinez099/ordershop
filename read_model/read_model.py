@@ -72,15 +72,12 @@ class ReadModel(object):
         entity = json.loads(_event.event_data)
 
         if _event.event_action == 'entity_created':
-            logging.info('CREATED')
             self.domain_model.create(_name, entity)
 
         if _event.event_action == 'entity_deleted':
-            logging.info('DELETED')
             self.domain_model.delete(_name, entity)
 
         if _event.event_action == 'entity_updated':
-            logging.info('UPDATED')
             self.domain_model.update(_name, entity)
 
     def _query_entities(self, _name):

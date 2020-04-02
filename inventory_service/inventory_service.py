@@ -159,7 +159,7 @@ class InventoryService(object):
 
         inventory = rsp['result']
         if not inventory:
-            logging.info("could not find inventory for product {}".format(_product_id))
+            logging.warning("could not find inventory for product {}".format(_product_id))
             return False
 
         inventory = inventory[0]
@@ -183,33 +183,33 @@ class InventoryService(object):
             raise Exception(rsp['error'] + ' (from read-model)')
 
         inventories = rsp['result']
-        occurs = {}
+        products = {}
 
+        # collect products
         for cart in carts:
             try:
-                product_ids = cart['product_ids']
+                product_ids_in_cart = cart['product_ids']
             except KeyError:
                 raise Exception("missing mandatory parameter 'product_ids'")
 
             for inventory in inventories:
-                if not inventory['product_id'] in occurs:
-                    occurs[inventory['product_id']] = 0
+                found = product_ids_in_cart.count(inventory['product_id'])
+                if not found:
+                    continue
 
-                # check amount
-                occurs[inventory['product_id']] += product_ids.count(inventory['product_id'])
-                if occurs[inventory['product_id']] > int(inventory['amount']):
-                    logging.info("product {} is out of stock".format(inventory['product_id']))
-                    return False
+                if not inventory['product_id'] in products:
+                    products[inventory['product_id']] = 0
+                products[inventory['product_id']] += found
 
-        for product_id, amount in occurs.items():
+        # check inventory
+        for product_id, amount in products.items():
             inventory = list(filter(lambda x: x['product_id'] == product_id, inventories))
             if not inventory:
-                logging.info("could not find inventory for product {}".format(product_id))
+                logging.warning("could not find inventory for product {}".format(product_id))
                 return False
 
-            # check amount
             inventory = inventory[0]
-            if int(inventory['amount']) - amount < 0:
+            if int(inventory['amount']) < amount:
                 logging.info("product {} is out of stock".format(product_id))
                 return False
 

@@ -1,11 +1,16 @@
+import functools
 import json
 
 from flask import Flask, request, render_template
+from flask_socketio import SocketIO, send, emit
 
+from event_store.event_store_client import EventStoreClient
 from message_queue.message_queue_client import send_message
 
 
 app = Flask(__name__)
+socketio = SocketIO(app)
+event_store = EventStoreClient()
 
 
 def _send_message(service_name, func_name, add_params=None):
@@ -244,16 +249,57 @@ def delete_shipping(shipping_id):
 
 
 @app.route('/report', methods=['GET'])
-def report():
+def get_report():
+    report = {
+        "billings": _read_model('billing')['result'],
+        "carts": _read_model('cart')['result'],
+        "customers": _read_model('customer')['result'],
+        "inventory": _read_model('inventory')['result'],
+        "orders": _read_model('order')['result'],
+        "products": _read_model('product')['result'],
+        "shippings": _read_model('shipping')['result'],
+    }
+    socketio.emit('report_update', json.dumps(report))
 
     return {
-        "result": {
-            "billings": _read_model('billing')['result'],
-            "carts": _read_model('cart')['result'],
-            "customers": _read_model('customer')['result'],
-            "inventory": _read_model('inventory')['result'],
-            "orders": _read_model('order')['result'],
-            "products": _read_model('product')['result'],
-            "shippings": _read_model('shipping')['result'],
-        }
+        "result": report
     }
+
+
+@socketio.on('connect')
+def test_connect():
+    app.logger.info('ws client connected')
+
+
+@socketio.on('disconnect')
+def test_disconnect():
+    app.logger.info('ws client disconnected')
+
+
+def _emit_event(_name, _event):
+    """
+    Send domain event to websocket clients.
+
+    :param _name: The event name.
+    :param _event: The event.
+    """
+    event = {
+        'action': _event.event_action.replace('entity', _name),
+        'data': _event.event_data,
+        'ts': _event.event_ts
+    }
+    socketio.emit('entity_event', json.dumps(event))
+
+
+# subscribe to domain events and forward each event to websocket clients
+[event_store.subscribe(entity, functools.partial(_emit_event, entity)) for entity in ['billing',
+                                                                                      'cart',
+                                                                                      'customer',
+                                                                                      'inventory',
+                                                                                      'order',
+                                                                                      'product',
+                                                                                      'shipping']]
+
+
+if __name__ == "__main__":
+    socketio.run(app)
