@@ -95,6 +95,17 @@ class CartService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
+        rsp = send_message('read-model', 'get_entites', {'name': 'order', 'props': {'cart_id': cart_id}})
+        if 'error' in rsp:
+            rsp['error'] += ' (from read-model)'
+            return rsp
+
+        order = rsp['result']
+        if order and not order['status'] == 'CREATED':
+            return {
+                "error": "order {} in progress".format(order[0]['entity_id'])
+            }
+
         rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': cart_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
@@ -103,7 +114,7 @@ class CartService(object):
         cart = rsp['result']
         if not cart:
             return {
-                "error": "could not find cart"
+                "error": "could not find cart {}".format(cart_id)
             }
 
         # set new props

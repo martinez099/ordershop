@@ -2,6 +2,7 @@ import json
 import logging
 import signal
 import uuid
+import typing
 
 from event_store.event_store_client import EventStoreClient, create_event
 from message_queue.message_queue_client import Consumers, send_message
@@ -174,46 +175,38 @@ class InventoryService(object):
 
         return True
 
-    def decr_from_carts(self, _carts):
-
-        carts = _carts if isinstance(_carts, list) else [_carts]
+    def decr_from_cart(self, _cart: typing.Dict[str, str]):
 
         rsp = send_message('read-model', 'get_entities', {'name': 'inventory'})
         if 'error' in rsp:
             raise Exception(rsp['error'] + ' (from read-model)')
 
         inventories = rsp['result']
-        products = {}
 
-        # collect products
-        for cart in carts:
-            try:
-                product_ids_in_cart = cart['product_ids']
-            except KeyError:
-                raise Exception("missing mandatory parameter 'product_ids'")
+        try:
+            product_ids = _cart['product_ids']
+        except KeyError:
+            raise Exception("missing mandatory parameter 'product_ids'")
 
-            for inventory in inventories:
-                found = product_ids_in_cart.count(inventory['product_id'])
-                if not found:
-                    continue
+        # count products
+        products = typing.Dict[str, typing.Tuple[dict, int]]  # product_id -> (inventory, count)
+        for inventory in inventories:
+            found = product_ids.count(inventory['product_id'])
+            if not found:
+                continue
 
-                if not inventory['product_id'] in products:
-                    products[inventory['product_id']] = 0
-                products[inventory['product_id']] += found
+            if not inventory['product_id'] in products:
+                products[inventory['product_id']] = (inventory, 0)
+            products[inventory['product_id']][1] += found
 
-        # check inventory
-        for product_id, amount in products.items():
-            inventory = list(filter(lambda x: x['product_id'] == product_id, inventories))
-            if not inventory:
-                logging.warning("could not find inventory for product {}".format(product_id))
+            # check amount
+            if products[inventory['product_id']] > inventory['amount']:
+                logging.info("product {} is out of stock".format(products[inventory['product_id']]))
                 return False
 
-            inventory = inventory[0]
-            if int(inventory['amount']) < amount:
-                logging.info("product {} is out of stock".format(product_id))
-                return False
-
-            inventory['amount'] = int(inventory['amount']) - amount
+        # decrement inventory
+        for product_id, (inventory, count) in products.items():
+            inventory['amount'] -= count
 
             # trigger event
             self.event_store.publish('inventory', create_event('entity_updated', inventory))
@@ -227,7 +220,7 @@ class InventoryService(object):
         order = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': order['cart_id']})
         cart = rsp['result']
-        result = self.decr_from_carts(cart)
+        result = self.decr_from_cart(cart)
         order['status'] = 'IN_STOCK' if result else 'OUT_OF_STOCK'
         self.event_store.publish('order', create_event('entity_updated', order))
 

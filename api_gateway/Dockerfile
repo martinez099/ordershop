@@ -1,6 +1,5 @@
 FROM python:3
 
-RUN pip install eventlet
 RUN pip install grpcio
 RUN pip install grpcio-tools
 RUN pip install flask

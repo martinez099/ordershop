@@ -17,6 +17,10 @@
     <h1>OrderShop v2</h1>
     <section class="container">
       <div id="left">
+        <h2>Events</h2>
+        <pre id="events"></pre>
+      </div>
+      <div id="right">
         <h2>Report</h2>
         <pre id="report"></pre>
         <script type="text/javascript" charset="utf-8">
@@ -27,17 +31,12 @@
           });
         </script>
       </div>
-      <div id="right">
-        <h2>Events</h2>
-        <pre id="events"></pre>
-      </div>
       <script type="text/javascript" charset="utf-8">
         var socket = io();
         socket.on('connect', function() {
           console.log('connected');
         });
         var events = [];
-        $('#report').jsonViewer(events);
         socket.on('entity_event', function(data) {
           event = JSON.parse(data);
           event.data  = JSON.parse(event.data);

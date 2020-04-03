@@ -29,9 +29,6 @@ class MailService(object):
             }
 
         logging.info('sent email with message "{}" to "{}"'.format(_req['msg'], _req['to']))
-        return {
-            "result": True
-        }
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

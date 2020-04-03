@@ -19,12 +19,12 @@ class OrderService(object):
                                                      self.delete_order])
 
     @staticmethod
-    def _create_entity(_cart_id, _status='PENDING'):
+    def _create_entity(_cart_id, _status='CREATED'):
         """
         Create an order entity.
 
         :param _cart_id: The cart ID the order is for.
-        :param _status: The current status of the order, defaults to PENDING.
+        :param _status: The current status of the order, defaults to CREATED.
                         Other options are OUT_OF_STOCK, IN_STOCK, CLEARED, UNCLEARED, SHIPPED and DELIVERED.
         :return: A dict with the entity properties.
         """
@@ -144,6 +144,9 @@ class OrderService(object):
         billing = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
         order = rsp['result']
+        if not order['status'] == 'IN_STOCK':
+            return
+
         order['status'] = 'CLEARED'
         self.event_store.publish('order', create_event('entity_updated', order))
 
@@ -154,6 +157,9 @@ class OrderService(object):
         billing = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
         order = rsp['result']
+        if not order['status'] == 'CLEARED':
+            return
+
         order['status'] = 'UNCLEARED'
         self.event_store.publish('order', create_event('entity_updated', order))
 
@@ -164,6 +170,9 @@ class OrderService(object):
         shipping = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
         order = rsp['result']
+        if not order['status'] == 'CLEARED':
+            return
+
         order['status'] = 'SHIPPED'
         self.event_store.publish('order', create_event('entity_updated', order))
 

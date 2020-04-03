@@ -38,7 +38,7 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_c_create_inventory(self):
 
-        # load products
+        # get products
         rsp = request.urlopen('{}/products'.format(BASE_URL))
         products = get_result(rsp)
 
@@ -52,11 +52,11 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_d_create_carts(self):
 
-        # load customers
+        # get customers
         rsp = request.urlopen('{}/customers'.format(BASE_URL))
         customers = get_result(rsp)
 
-        # load products
+        # get products
         rsp = request.urlopen('{}/products'.format(BASE_URL))
         products = get_result(rsp)
 
@@ -73,7 +73,7 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_e_create_orders(self):
 
-        # load carts
+        # get carts
         rsp = request.urlopen('{}/carts'.format(BASE_URL))
         carts = get_result(rsp)
 
@@ -90,11 +90,11 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_f_update_second_cart(self):
 
-        # load carts
+        # get carts
         rsp = request.urlopen('{}/carts'.format(BASE_URL))
         carts = get_result(rsp)
 
-        # load products
+        # get products
         rsp = request.urlopen('{}/products'.format(BASE_URL))
         products = get_result(rsp)
 
@@ -114,7 +114,7 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_g_delete_third_order(self):
 
-        # load orders
+        # get orders
         rsp = request.urlopen('{}/orders'.format(BASE_URL))
         orders = get_result(rsp)
 
@@ -127,7 +127,7 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_h_delete_third_customer(self):
 
-        # load customers
+        # get customers
         rsp = request.urlopen('{}/customers'.format(BASE_URL))
         customers = get_result(rsp)
 
@@ -140,12 +140,23 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_i_perform_billing(self):
 
-        # load orders
+        # get orders
         rsp = request.urlopen('{}/orders'.format(BASE_URL))
         orders = get_result(rsp)
 
+        # get cart of 1st order
+        rsp = request.urlopen('{}/cart/{}'.format(BASE_URL, orders[0]['cart_id']))
+        cart = get_result(rsp)
+
+        # get products of cart
+        rsps = [request.urlopen('{}/product/{}'.format(BASE_URL, product_id)) for product_id in cart['product_ids']]
+        products = [get_result(rsp) for rsp in rsps]
+
+        # calculate total amount
+        amount = sum([int(product['price']) for product in products])
+
         # perform billing
-        rsp = http_cmd_req('{}/billing'.format(BASE_URL), {'order_id': orders[0]['entity_id'], 'method': 'CC'})
+        rsp = http_cmd_req('{}/billing'.format(BASE_URL), {'order_id': orders[0]['entity_id'], 'amount': amount})
         billing_id = get_result(rsp)
 
         # check result
@@ -153,7 +164,7 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_j_get_unbilled_orders(self):
 
-        # load unbilled orders
+        # get unbilled orders
         rsp = request.urlopen('{}/orders/unbilled'.format(BASE_URL))
         unbilled_orders = get_result(rsp)
 
@@ -162,7 +173,7 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_k_confirm_shipping(self):
 
-        # load shippings
+        # get shippings
         rsp = request.urlopen('{}/shippings'.format(BASE_URL))
         shippings = get_result(rsp)
 
@@ -176,7 +187,7 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_l_get_unshipped_orders(self):
 
-        # load unshipped orders
+        # get unshipped orders
         rsp = request.urlopen('{}/orders/unshipped'.format(BASE_URL))
         unshipped_orders = get_result(rsp)
 
@@ -185,7 +196,7 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_z_print_report(self):
 
-        # load customers
+        # get customers
         rsp = request.urlopen('{}/report'.format(BASE_URL))
         report = get_result(rsp)
 

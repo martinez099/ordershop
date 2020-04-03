@@ -1,4 +1,3 @@
-import json
 import logging
 import signal
 import uuid
@@ -19,18 +18,18 @@ class BillingService(object):
                                                        self.delete_billing])
 
     @staticmethod
-    def _create_entity(_order_id, _method):
+    def _create_entity(_order_id, _amount):
         """
         Create a billing entity.
 
         :param _order_id: The order ID the billing belongs to.
-        :param _method: The billing method.
+        :param _amount: Total amount to pay.
         :return: A dict with the entity properties.
         """
         return {
             'entity_id': str(uuid.uuid4()),
             'order_id': _order_id,
-            'method': _method
+            'amount': _amount
         }
 
     def start(self):
@@ -49,10 +48,10 @@ class BillingService(object):
 
         for billing in billings:
             try:
-                new_billing = BillingService._create_entity(billing['order_id'], billing['method'])
+                new_billing = BillingService._create_entity(billing['order_id'], billing['amount'])
             except KeyError:
                 return {
-                    "error": "missing mandatory parameter 'order_id' and/or 'method'"
+                    "error": "missing mandatory parameter 'order_id' and/or 'amount'"
                 }
 
             # trigger event
@@ -88,10 +87,10 @@ class BillingService(object):
         billing['entity_id'] = billing_id
         try:
             billing['order_id'] = _req['order_id']
-            billing['method'] = _req['method']
+            billing['amount'] = _req['amount']
         except KeyError:
             return {
-                "result": "missing mandatory parameter 'order_id' and/or 'method"
+                "result": "missing mandatory parameter 'order_id' and/or 'amount"
             }
 
         # trigger event
