@@ -10,7 +10,6 @@ class CartService(object):
     """
     Cart Service class.
     """
-
     def __init__(self):
         self.event_store = EventStoreClient()
         self.consumers = Consumers('cart-service', [self.create_carts,
@@ -59,7 +58,6 @@ class CartService(object):
         logging.info('stopped.')
 
     def create_carts(self, _req):
-
         carts = _req if isinstance(_req, list) else [_req]
         cart_ids = []
 
@@ -87,7 +85,6 @@ class CartService(object):
         }
 
     def update_cart(self, _req):
-
         try:
             cart_id = _req['entity_id']
         except KeyError:
@@ -95,15 +92,15 @@ class CartService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_entites', {'name': 'order', 'props': {'cart_id': cart_id}})
+        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'props': {'cart_id': cart_id}})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
 
-        order = rsp['result']
-        if order and not order['status'] == 'CREATED':
+        orders = rsp['result']
+        if orders and not orders[0]['status'] == 'CREATED':
             return {
-                "error": "order {} in progress".format(order[0]['entity_id'])
+                "error": "order {} in progress".format(orders[0]['entity_id'])
             }
 
         rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': cart_id})
@@ -141,7 +138,6 @@ class CartService(object):
         }
 
     def delete_cart(self, _req):
-
         try:
             cart_id = _req['entity_id']
         except KeyError:

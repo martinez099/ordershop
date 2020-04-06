@@ -10,7 +10,6 @@ class CustomerService(object):
     """
     Customer Service class.
     """
-
     def __init__(self):
         self.event_store = EventStoreClient()
         self.consumers = Consumers('customer-service', [self.create_customers,
@@ -42,7 +41,6 @@ class CustomerService(object):
         logging.info('stopped.')
 
     def create_customers(self, _req):
-
         customers = _req if isinstance(_req, list) else [_req]
         customer_ids = []
 
@@ -64,7 +62,6 @@ class CustomerService(object):
         }
 
     def update_customer(self, _req):
-
         try:
             customer = CustomerService._create_entity(_req['name'], _req['email'])
         except KeyError:
@@ -87,7 +84,6 @@ class CustomerService(object):
         }
 
     def delete_customer(self, _req):
-
         try:
             customer_id = _req['entity_id']
         except KeyError:

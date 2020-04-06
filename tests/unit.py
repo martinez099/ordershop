@@ -71,24 +71,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertEqual(created, len(carts))
 
-    def test_e_create_orders(self):
-
-        # get carts
-        rsp = request.urlopen('{}/carts'.format(BASE_URL))
-        carts = get_result(rsp)
-
-        # create orders
-        orders = create_orders(carts)
-        ordered = 0
-        for order in orders:
-            rsp = http_cmd_req('{}/orders'.format(BASE_URL), order)
-            order_ids = get_result(rsp)
-            ordered += len(order_ids)
-
-        # check result
-        self.assertEqual(ordered, len(orders))
-
-    def test_f_update_second_cart(self):
+    def test_e_update_second_cart(self):
 
         # get carts
         rsp = request.urlopen('{}/carts'.format(BASE_URL))
@@ -111,6 +94,23 @@ class OrderShopTestCase(unittest.TestCase):
         cart = get_result(rsp)
         self.assertIsNotNone(cart['product_ids'][0])
         self.assertEqual(carts[1]['product_ids'][0], cart['product_ids'][0])
+
+    def test_f_create_orders(self):
+
+        # get carts
+        rsp = request.urlopen('{}/carts'.format(BASE_URL))
+        carts = get_result(rsp)
+
+        # create orders
+        orders = create_orders(carts)
+        ordered = 0
+        for order in orders:
+            rsp = http_cmd_req('{}/orders'.format(BASE_URL), order)
+            order_ids = get_result(rsp)
+            ordered += len(order_ids)
+
+        # check result
+        self.assertEqual(ordered, len(orders))
 
     def test_g_delete_third_order(self):
 

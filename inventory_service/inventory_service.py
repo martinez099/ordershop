@@ -2,7 +2,6 @@ import json
 import logging
 import signal
 import uuid
-import typing
 
 from event_store.event_store_client import EventStoreClient, create_event
 from message_queue.message_queue_client import Consumers, send_message
@@ -12,7 +11,6 @@ class InventoryService(object):
     """
     Inventory Service class.
     """
-
     def __init__(self):
         self.event_store = EventStoreClient()
         self.consumers = Consumers('inventory-service', [self.create_inventory,
@@ -48,7 +46,6 @@ class InventoryService(object):
         logging.info('stopped.')
 
     def create_inventory(self, _req):
-
         inventory = _req if isinstance(_req, list) else [_req]
         inventory_ids = []
 
@@ -70,7 +67,6 @@ class InventoryService(object):
         }
 
     def update_inventory(self, _req):
-
         try:
             inventory_id = _req['entity_id']
         except KeyError:
@@ -107,7 +103,6 @@ class InventoryService(object):
         }
 
     def delete_inventory(self, _req):
-
         try:
             inventory_id = _req['entity_id']
         except KeyError:
@@ -134,7 +129,6 @@ class InventoryService(object):
         }
 
     def incr_inventory(self, _product_id, _value=1):
-
         rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
             raise Exception(rsp['error'] + ' (from read-model)')
@@ -153,7 +147,6 @@ class InventoryService(object):
         return True
 
     def decr_inventory(self, _product_id, _value=1):
-
         rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
             raise Exception(rsp['error'] + ' (from read-model)')
@@ -175,9 +168,8 @@ class InventoryService(object):
 
         return True
 
-    def decr_from_cart(self, _cart: typing.Dict[str, str]):
-
-        rsp = send_message('read-model', 'get_entities', {'name': 'inventory'})
+    def decr_from_cart(self, _cart):
+        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'ids': _cart['product_ids']}})
         if 'error' in rsp:
             raise Exception(rsp['error'] + ' (from read-model)')
 
@@ -189,24 +181,20 @@ class InventoryService(object):
             raise Exception("missing mandatory parameter 'product_ids'")
 
         # count products
-        products = typing.Dict[str, typing.Tuple[dict, int]]  # product_id -> (inventory, count)
+        counts = []
         for inventory in inventories:
             found = product_ids.count(inventory['product_id'])
-            if not found:
-                continue
-
-            if not inventory['product_id'] in products:
-                products[inventory['product_id']] = (inventory, 0)
-            products[inventory['product_id']][1] += found
 
             # check amount
-            if products[inventory['product_id']] > inventory['amount']:
-                logging.info("product {} is out of stock".format(products[inventory['product_id']]))
+            if found > int(inventory['amount']):
+                logging.info("product {} is out of stock".format(inventory['product_id']))
                 return False
 
+            counts.append((inventory, found))
+
         # decrement inventory
-        for product_id, (inventory, count) in products.items():
-            inventory['amount'] -= count
+        for inventory, count in counts:
+            inventory['amount'] = int(inventory['amount']) - count
 
             # trigger event
             self.event_store.publish('inventory', create_event('entity_updated', inventory))

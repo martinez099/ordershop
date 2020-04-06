@@ -12,6 +12,12 @@
       #left { float: left; width: 50% }
       #right { float: right; width: 50% }
     </style>
+    <script>
+      socket = io();
+      window.addEventListener("beforeunload", function(event) {
+        console.log("BEFOREUNLOAD event fired");
+      });
+    </script>
   </head>
   <body>
     <h1>OrderShop v2</h1>
@@ -32,9 +38,8 @@
         </script>
       </div>
       <script type="text/javascript" charset="utf-8">
-        var socket = io();
         socket.on('connect', function() {
-          console.log('connected');
+          console.log('connected to WS server');
         });
         var events = [];
         socket.on('entity_event', function(data) {

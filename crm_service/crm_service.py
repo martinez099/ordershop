@@ -10,7 +10,6 @@ class CrmService(object):
     """
     CRM Service class.
     """
-
     def __init__(self):
         self.event_store = EventStoreClient()
 

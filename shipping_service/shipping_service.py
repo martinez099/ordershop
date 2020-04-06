@@ -45,7 +45,6 @@ class ShippingService(object):
         logging.info('stopped.')
 
     def create_shippings(self, _req):
-
         shippings = _req if isinstance(_req, list) else [_req]
         shipping_ids = []
 
@@ -67,7 +66,6 @@ class ShippingService(object):
         }
 
     def update_shipping(self, _req):
-
         try:
             shipping_id = _req['entity_id']
         except KeyError:
@@ -104,7 +102,6 @@ class ShippingService(object):
         }
 
     def delete_shipping(self, _req):
-
         try:
             shipping_id = _req['entity_id']
         except KeyError:

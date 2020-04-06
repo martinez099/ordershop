@@ -42,7 +42,6 @@ class ProductService(object):
         logging.info('stopped.')
 
     def create_products(self, _req):
-
         products = _req if isinstance(_req, list) else [_req]
         product_ids = []
 
@@ -64,7 +63,6 @@ class ProductService(object):
         }
 
     def update_product(self, _req):
-
         try:
             product_id = _req['entity_id']
         except KeyError:
@@ -101,7 +99,6 @@ class ProductService(object):
         }
 
     def delete_product(self, _req):
-
         try:
             product_id = _req['entity_id']
         except KeyError:

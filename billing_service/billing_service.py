@@ -10,7 +10,6 @@ class BillingService(object):
     """
     Billing Service class.
     """
-
     def __init__(self):
         self.event_store = EventStoreClient()
         self.consumers = Consumers('billing-service', [self.create_billings,
@@ -42,7 +41,6 @@ class BillingService(object):
         logging.info('stopped.')
 
     def create_billings(self, _req):
-
         billings = _req if isinstance(_req, list) else [_req]
         billing_ids = []
 
@@ -64,7 +62,6 @@ class BillingService(object):
         }
 
     def update_billing(self, _req):
-
         try:
             billing_id = _req['entity_id']
         except KeyError:
@@ -101,7 +98,6 @@ class BillingService(object):
         }
 
     def delete_billing(self, _req):
-
         try:
             billing_id = _req['entity_id']
         except KeyError:

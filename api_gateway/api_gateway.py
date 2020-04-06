@@ -267,13 +267,19 @@ def get_report():
 
 
 @socketio.on('connect')
-def test_connect():
-    app.logger.info('ws client connected')
+def on_connect():
+    app.logger.info('WS client connected')
 
 
 @socketio.on('disconnect')
-def test_disconnect():
-    app.logger.info('ws client disconnected')
+def on_disconnect():
+    app.logger.info('WS client disconnected')
+
+
+@socketio.on('stop')
+def on_stop():
+    socketio.stop()
+    app.logger.info('Flask server stopped')
 
 
 def _emit_event(_name, _event):

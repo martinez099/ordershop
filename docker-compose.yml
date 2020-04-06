@@ -63,6 +63,7 @@ services:
       - EVENT_STORE_HOSTNAME=event-store
       - MESSAGE_QUEUE_HOSTNAME=message-queue
     depends_on:
+      - event-store
       - message-queue
   order-service:
     build: "./order_service"

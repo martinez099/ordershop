@@ -52,7 +52,6 @@ class OrderService(object):
         logging.info('stopped.')
 
     def create_orders(self, _req):
-
         orders = _req if isinstance(_req, list) else [_req]
         order_ids = []
 
@@ -74,7 +73,6 @@ class OrderService(object):
         }
 
     def update_order(self, _req):
-
         try:
             order_id = _req['entity_id']
         except KeyError:
@@ -111,7 +109,6 @@ class OrderService(object):
         }
 
     def delete_order(self, _req):
-
         try:
             order_id = _req['entity_id']
         except KeyError:
