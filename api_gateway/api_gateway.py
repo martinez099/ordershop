@@ -319,13 +319,14 @@ def _emit_event(_name, _event):
 
 
 # subscribe to domain events and forward each event to websocket clients
-[event_store.subscribe(entity, functools.partial(_emit_event, entity)) for entity in ['billing',
-                                                                                      'cart',
-                                                                                      'customer',
-                                                                                      'inventory',
-                                                                                      'order',
-                                                                                      'product',
-                                                                                      'shipping']]
+[event_store.subscribe(topic, functools.partial(_emit_event, topic)) for topic in ['billing',
+                                                                                   'cart',
+                                                                                   'customer',
+                                                                                   'inventory',
+                                                                                   'order',
+                                                                                   'product',
+                                                                                   'shipping',
+                                                                                   'mail']]
 
 
 if __name__ == "__main__":

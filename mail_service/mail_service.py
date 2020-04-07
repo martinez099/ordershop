@@ -29,7 +29,7 @@ class MailService(object):
             }
 
         # trigger event
-        self.event_store.publish('mail', create_event('sent', {"recipient": _req['to'], "message": _req['msg']}))
+        self.event_store.publish('mail', create_event('mail_sent', {"recipient": _req['to'], "message": _req['msg']}))
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
