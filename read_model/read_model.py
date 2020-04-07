@@ -19,7 +19,8 @@ class ReadModel(object):
 
     def __init__(self, _redis_host='localhost', _redis_port=6379):
         self.event_store = EventStoreClient()
-        self.consumers = Consumers('read-model', [self.get_entities,
+        self.consumers = Consumers('read-model', [self.get_entity,
+                                                  self.get_entities,
                                                   self.get_unbilled_orders,
                                                   self.get_unshipped_orders])
         self.domain_model = DomainModel(
@@ -182,15 +183,36 @@ class ReadModel(object):
         self.consumers.stop()
         logging.info('stopped.')
 
-    def get_entities(self, _req):
+    def get_entity(self, _req):
         if 'name' not in _req:
             return {
                 "error": "missing mandatory parameter 'name'"
             }
 
-        if 'id' in _req and isinstance(_req['id'], str):
+        if 'id' in _req:
             return {
                 'result': self._query_entities(_req['name']).get(_req['id'])
+            }
+
+        elif 'props' in _req and isinstance(_req['props'], dict):
+            result = list(self._query_defined_entities(_req['name'], _req['props']).values())
+            if len(result) <= 1:
+                return {
+                    'result': result[0] if result else None
+                }
+            else:
+                return {
+                    'error': 'more than 1 result found'
+                }
+        else:
+            return {
+                'result': 'invalid paramters'
+            }
+
+    def get_entities(self, _req):
+        if 'name' not in _req:
+            return {
+                "error": "missing mandatory parameter 'name'"
             }
 
         elif 'ids' in _req and isinstance(_req['ids'], list):

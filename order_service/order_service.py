@@ -80,7 +80,7 @@ class OrderService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': order_id})
+        rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': order_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -116,7 +116,7 @@ class OrderService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': order_id})
+        rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': order_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -139,7 +139,7 @@ class OrderService(object):
             return
 
         billing = json.loads(_item.event_data)
-        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
+        rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': billing['order_id']})
         order = rsp['result']
         if not order['status'] == 'IN_STOCK':
             return
@@ -152,7 +152,7 @@ class OrderService(object):
             return
 
         billing = json.loads(_item.event_data)
-        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': billing['order_id']})
+        rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': billing['order_id']})
         order = rsp['result']
         if not order['status'] == 'CLEARED':
             return
@@ -165,7 +165,7 @@ class OrderService(object):
             return
 
         shipping = json.loads(_item.event_data)
-        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
+        rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': shipping['order_id']})
         order = rsp['result']
         if not order['status'] == 'CLEARED':
             return
@@ -181,7 +181,7 @@ class OrderService(object):
         if not shipping['delivered']:
             return
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'id': shipping['order_id']})
+        rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': shipping['order_id']})
         order = rsp['result']
         order['status'] = 'DELIVERED'
         self.event_store.publish('order', create_event('entity_updated', order))

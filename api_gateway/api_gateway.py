@@ -43,10 +43,12 @@ def _read_model(entitiy_name, entity_id=None):
     params = {
         'name': entitiy_name
     }
-    if entity_id:
-        params['id'] = entity_id
+    if not entity_id:
+        return _send_message('read-model', 'get_entities', params)
 
-    return _send_message('read-model', 'get_entities', params)
+    params['id'] = entity_id
+
+    return _send_message('read-model', 'get_entity', params)
 
 
 @app.route('/', methods=['GET'])
@@ -246,6 +248,25 @@ def update_shipping(shipping_id):
 def delete_shipping(shipping_id):
 
     return _send_message('shipping-service', 'delete_shipping', {'entity_id': shipping_id})
+
+
+@app.route('/report/orders', methods=['GET'])
+def get_order_report():
+    rsp = send_message('read-model', 'get_entities', {'name': 'order'})
+    orders = rsp['result']
+    for order in orders:
+        rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
+        order['cart'] = rsp['result']
+
+        rsp = send_message('read-model', 'get_entity', {'name': 'customer', 'id': order['cart']['customer_id']})
+        order['cart']['customer'] = rsp['result']
+
+        rsp = send_message('read-model', 'get_entities', {'name': 'product', 'ids': order['cart']['product_ids']})
+        order['cart']['products'] = rsp['result']
+
+    return {
+        "result": orders
+    }
 
 
 @app.route('/report', methods=['GET'])

@@ -33,16 +33,16 @@ class CartService(object):
 
     @staticmethod
     def _check_inventory(_product_ids):
-        occurs = {}
+        product_counts = {}
         for product_id in _product_ids:
-            if product_id not in occurs:
-                occurs[product_id] = 1
+            if product_id not in product_counts:
+                product_counts[product_id] = 1
             else:
-                occurs[product_id] += 1
+                product_counts[product_id] += 1
 
-        for product_id, amount in occurs.items():
-            rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': product_id}})
-            inventory = rsp['result'][0]
+        for product_id, amount in product_counts.items():
+            rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': product_id}})
+            inventory = rsp['result']
             if int(inventory['amount']) - amount < 0:
                 return False, product_id
 
@@ -92,18 +92,18 @@ class CartService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'order', 'props': {'cart_id': cart_id}})
+        rsp = send_message('read-model', 'get_entity', {'name': 'order', 'props': {'cart_id': cart_id}})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
 
-        orders = rsp['result']
-        if orders and not orders[0]['status'] == 'CREATED':
+        order = rsp['result']
+        if order and not order['status'] == 'CREATED':
             return {
-                "error": "order {} in progress".format(orders[0]['entity_id'])
+                "error": "order {} in progress".format(order['entity_id'])
             }
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': cart_id})
+        rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': cart_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -145,7 +145,7 @@ class CartService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': cart_id})
+        rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': cart_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp

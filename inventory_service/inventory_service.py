@@ -74,7 +74,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'id': inventory_id})
+        rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'id': inventory_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -110,7 +110,7 @@ class InventoryService(object):
                 "error": "missing mandatory parameter 'entity_id'"
             }
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'id': inventory_id})
+        rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'id': inventory_id})
         if 'error' in rsp:
             rsp['error'] += ' (from read-model)'
             return rsp
@@ -129,7 +129,7 @@ class InventoryService(object):
         }
 
     def incr_inventory(self, _product_id, _value=1):
-        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': _product_id}})
+        rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
             raise Exception(rsp['error'] + ' (from read-model)')
 
@@ -138,7 +138,6 @@ class InventoryService(object):
             logging.error("could not find inventory for product {}".format(_product_id))
             return False
 
-        inventory = inventory[0]
         inventory['amount'] = int(inventory['amount']) - (_value if _value else 1)
 
         # trigger event
@@ -147,7 +146,7 @@ class InventoryService(object):
         return True
 
     def decr_inventory(self, _product_id, _value=1):
-        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': _product_id}})
+        rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': _product_id}})
         if 'error' in rsp:
             raise Exception(rsp['error'] + ' (from read-model)')
 
@@ -156,7 +155,6 @@ class InventoryService(object):
             logging.warning("could not find inventory for product {}".format(_product_id))
             return False
 
-        inventory = inventory[0]
         if int(inventory['amount']) - (_value if _value else 1) < 0:
             logging.info("product {} is out of stock".format(_product_id))
             return False
@@ -206,7 +204,7 @@ class InventoryService(object):
             return
 
         order = json.loads(_item.event_data)
-        rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': order['cart_id']})
+        rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
         cart = rsp['result']
         result = self.decr_from_cart(cart)
         order['status'] = 'IN_STOCK' if result else 'OUT_OF_STOCK'
@@ -220,7 +218,7 @@ class InventoryService(object):
         if order['status'] != 'IN_STOCK':
             return
 
-        rsp = send_message('read-model', 'get_entities', {'name': 'cart', 'id': order['cart_id']})
+        rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
         cart = rsp['result']
         [self.incr_inventory(product_id) for product_id in cart['product_ids']]
 
