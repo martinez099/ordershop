@@ -109,18 +109,20 @@ class ReadModel(object):
 
             return entities
 
-    def _query_spec_entities(self, _name, _props):
+    def _query_defined_entities(self, _name, _props):
         """
         Query entities with defined properities.
 
         :param _name: The entity name.
-        :param _props: A dict mapping property name -> property value.
+        :param _props: A dict mapping property name -> property value(s).
         :return: A dict mapping entity ID -> entity.
         """
         result = {}
         for entity_id, entity in self._query_entities(_name).items():
             for prop_name, prop_value in _props.items():
-                if prop_name in entity and entity[prop_name] == prop_value:
+                if not isinstance(prop_value, list):
+                    prop_value = [prop_value]
+                if prop_name in entity and entity[prop_name] in prop_value:
                     result[entity_id] = entity
 
         return result
@@ -198,7 +200,7 @@ class ReadModel(object):
 
         elif 'props' in _req and isinstance(_req['props'], dict):
             return {
-                'result': list(self._query_spec_entities(_req['name'], _req['props']).values())
+                'result': list(self._query_defined_entities(_req['name'], _req['props']).values())
             }
 
         else:

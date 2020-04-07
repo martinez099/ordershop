@@ -169,19 +169,19 @@ class InventoryService(object):
         return True
 
     def decr_from_cart(self, _cart):
-        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'ids': _cart['product_ids']}})
-        if 'error' in rsp:
-            raise Exception(rsp['error'] + ' (from read-model)')
-
-        inventories = rsp['result']
-
         try:
             product_ids = _cart['product_ids']
         except KeyError:
             raise Exception("missing mandatory parameter 'product_ids'")
 
+        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': product_ids}})
+        if 'error' in rsp:
+            raise Exception(rsp['error'] + ' (from read-model)')
+
+        inventories = rsp['result']
+
         # count products
-        counts = []
+        product_counts = []
         for inventory in inventories:
             found = product_ids.count(inventory['product_id'])
 
@@ -190,10 +190,10 @@ class InventoryService(object):
                 logging.info("product {} is out of stock".format(inventory['product_id']))
                 return False
 
-            counts.append((inventory, found))
+            product_counts.append((inventory, found))
 
         # decrement inventory
-        for inventory, count in counts:
+        for inventory, count in product_counts:
             inventory['amount'] = int(inventory['amount']) - count
 
             # trigger event
