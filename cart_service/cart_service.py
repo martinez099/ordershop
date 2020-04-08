@@ -59,6 +59,7 @@ class CartService(object):
 
     def create_carts(self, _req):
         carts = _req if isinstance(_req, list) else [_req]
+        logging.info(carts)
         cart_ids = []
 
         for cart in carts:

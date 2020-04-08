@@ -1,3 +1,4 @@
+import json
 import logging
 import signal
 import uuid
@@ -31,6 +32,21 @@ class BillingService(object):
             'amount': _amount
         }
 
+    @staticmethod
+    def _check_amount(_billing):
+        rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': _billing['order_id']})
+        order = rsp['result']
+
+        rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
+        cart = rsp['result']
+
+        rsp = send_message('read-model', 'get_entities', {'name': 'product', 'ids': cart['product_ids']})
+        products = rsp['result']
+
+        amount = sum([int(product['price']) for product in products])
+
+        return amount == int(_billing['amount'])
+
     def start(self):
         logging.info('starting ...')
         self.consumers.start()
@@ -45,6 +61,12 @@ class BillingService(object):
         billing_ids = []
 
         for billing in billings:
+            res = self._check_amount(billing)
+            if not res:
+                return {
+                    'error': 'amount is not accurate'
+                }
+
             try:
                 new_billing = BillingService._create_entity(billing['order_id'], billing['amount'])
             except KeyError:
@@ -88,6 +110,12 @@ class BillingService(object):
         except KeyError:
             return {
                 "result": "missing mandatory parameter 'order_id' and/or 'amount"
+            }
+
+        res = self._check_amount(billing)
+        if not res:
+            return {
+                'error': 'amount is not accurate'
             }
 
         # trigger event

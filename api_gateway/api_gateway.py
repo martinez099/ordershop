@@ -15,7 +15,7 @@ event_store = EventStoreClient()
 
 def _send_message(service_name, func_name, add_params=None):
     """
-    Helper function to send a message to an according service.
+    Helper function to send a message to a service.
 
     :param service_name: The name of the service to call.
     :param func_name: The name of the function to call.
