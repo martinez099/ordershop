@@ -9,7 +9,8 @@
     <script src="{{ url_for('static', filename='jquery-ui-1.12.1/jquery-ui.js') }}" type="text/javascript" charset="utf-8"></script>
     <link href="{{ url_for('static', filename='json-viewer-1.4.0/jquery.json-viewer.css') }}" type="text/css" rel="stylesheet">
     <style>
-      .container { width: 100%; }
+      body { padding: 10px }
+      .container { width: 100%; padding: 10px }
       #left { float: left; width: 50% }
       #right { float: right; width: 50% }
     </style>
@@ -24,24 +25,24 @@
     <section class="container">
       <div id="left">
         <h2>Events</h2>
-        <button id="sort" class="ui-button ui-widget ui-corner-all">Sort</button>
+        Sort by <button id="sort" class="ui-button ui-widget ui-corner-all">action ascending</button>
         <pre id="events"></pre>
         <script type="text/javascript" charset="utf-8">
         $(function() {
-          events_sorted = false;
+          sorted_by_action = false;
           $('#sort').click(function(event) {
-            if (events_sorted) {
+            if (sorted_by_action) {
               events.sort(function(a, b) {
-                return a.ts - b.ts;
+                return b.ts - a.ts;
               });
-              events_sorted = false;
-              $(this).text('Sort by action');
+              sorted_by_action = false;
+              $(this).text('action ascending');
             } else {
               events.sort(function(a, b) {
                 return a.action.localeCompare(b.action);
               });
-              events_sorted = true;
-              $(this).text('Sort by timestamp');
+              sorted_by_action = true;
+              $(this).text('timestamp descending');
             }
             $('#events').jsonViewer(events);
           });
