@@ -271,19 +271,17 @@ def get_order_report():
 
 @app.route('/report', methods=['GET'])
 def get_report():
-    report = {
-        "billings": _read_model('billing')['result'],
-        "carts": _read_model('cart')['result'],
-        "customers": _read_model('customer')['result'],
-        "inventory": _read_model('inventory')['result'],
-        "orders": _read_model('order')['result'],
-        "products": _read_model('product')['result'],
-        "shippings": _read_model('shipping')['result'],
-    }
-    socketio.emit('report_update', json.dumps(report))
-
     return {
-        "result": report
+        "result": {
+            "billings": _read_model('billing')['result'],
+            "carts": _read_model('cart')['result'],
+            "customers": _read_model('customer')['result'],
+            "inventory": _read_model('inventory')['result'],
+            "orders": _read_model('order')['result'],
+            "products": _read_model('product')['result'],
+            "shippings": _read_model('shipping')['result'],
+            "mails": _send_message('read-model', 'get_mails')['result'],
+        }
     }
 
 
@@ -300,7 +298,7 @@ def on_disconnect():
 @socketio.on('stop')
 def on_stop():
     socketio.stop()
-    app.logger.info('Flask server stopped')
+    app.logger.info('FlaskIO server stopped')
 
 
 def _emit_event(_name, _event):

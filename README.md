@@ -1,7 +1,8 @@
 # ordershop
 This shows Redis as a communication channel in a microservices architecture.
 
-This is not production ready code, this is a sample implementation for showcasing only!
+## Disclaimer
+*This is not production ready code, this is a sample implementation for showcasing only!*
 
 ## Prerequisites
 

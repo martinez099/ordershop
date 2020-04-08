@@ -6,16 +6,16 @@
     <script src="{{ url_for('static', filename='socket.io-2.2.0.js') }}" type="text/javascript" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='jquery-3.4.1.js') }}" type="text/javascript" charset="utf-8"></script>
     <script src="{{ url_for('static', filename='json-viewer-1.4.0/jquery.json-viewer.js') }}" type="text/javascript" charset="utf-8"></script>
+    <script src="{{ url_for('static', filename='jquery-ui-1.12.1/jquery-ui.js') }}" type="text/javascript" charset="utf-8"></script>
     <link href="{{ url_for('static', filename='json-viewer-1.4.0/jquery.json-viewer.css') }}" type="text/css" rel="stylesheet">
     <style>
       .container { width: 100%; }
       #left { float: left; width: 50% }
       #right { float: right; width: 50% }
     </style>
-    <script>
-      socket = io();
-      window.addEventListener("beforeunload", function(event) {
-        console.log("BEFOREUNLOAD event fired");
+    <script type="text/javascript" charset="utf-8">
+      $(function() {
+        $(".widget input[type=submit], .widget a, .widget button").button();
       });
     </script>
   </head>
@@ -24,34 +24,61 @@
     <section class="container">
       <div id="left">
         <h2>Events</h2>
+        <button id="sort" class="ui-button ui-widget ui-corner-all">Sort</button>
         <pre id="events"></pre>
+        <script type="text/javascript" charset="utf-8">
+        $(function() {
+          events_sorted = false;
+          $('#sort').click(function(event) {
+            if (events_sorted) {
+              events.sort(function(a, b) {
+                return a.ts - b.ts;
+              });
+              events_sorted = false;
+              $(this).text('Sort by action');
+            } else {
+              events.sort(function(a, b) {
+                return a.action.localeCompare(b.action);
+              });
+              events_sorted = true;
+              $(this).text('Sort by timestamp');
+            }
+            $('#events').jsonViewer(events);
+          });
+        });
+        </script>
       </div>
       <div id="right">
-        <h2>Report</h2>
+        <h2>State</h2>
+        <button id="refresh" class="ui-button ui-widget ui-corner-all">Refresh</button>
         <pre id="report"></pre>
         <script type="text/javascript" charset="utf-8">
-          $.ajax({
-            'url': '/report'
-          }).done(function(data) {
-            $('#report').jsonViewer(data.result);
+        $(function() {
+          $('#refresh').click( function(event) {
+            event.preventDefault();
+            $.ajax({
+              'url': '/report'
+            }).done(function(data) {
+              $('#report').jsonViewer(data.result, {collapsed: true, rootCollapsable: false});
+            });
           });
+        });
         </script>
       </div>
       <script type="text/javascript" charset="utf-8">
+      $(function() {
+        var socket = io();
         socket.on('connect', function() {
           console.log('connected to WS server');
         });
-        var events = [];
+        events = [];
         socket.on('entity_event', function(data) {
           event = JSON.parse(data);
           event.data  = JSON.parse(event.data);
           events.unshift(event);
           $('#events').jsonViewer(events);
         });
-        socket.on('report_update', function(data) {
-          report = JSON.parse(data);
-          $('#report').jsonViewer(report);
-        });
+      });
       </script>
     </section>
   </body>

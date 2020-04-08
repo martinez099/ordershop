@@ -21,6 +21,7 @@ class ReadModel(object):
         self.event_store = EventStoreClient()
         self.consumers = Consumers('read-model', [self.get_entity,
                                                   self.get_entities,
+                                                  self.get_mails,
                                                   self.get_unbilled_orders,
                                                   self.get_unshipped_orders])
         self.domain_model = DomainModel(
@@ -229,6 +230,11 @@ class ReadModel(object):
             return {
                 'result': list(self._query_entities(_req['name']).values())
             }
+
+    def get_mails(self, _req):
+        return {
+            'result': self.event_store.get('mail')
+        }
 
     def get_unbilled_orders(self, _req):
         return {
