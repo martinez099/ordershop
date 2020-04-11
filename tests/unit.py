@@ -1,10 +1,9 @@
 import pprint
 import time
 import unittest
-
 from urllib import request
 
-from common import BASE_URL, create_carts, create_customers, create_inventory, create_orders, create_products, \
+from common import BASE_URL, create_carts, create_customers, create_inventories, create_orders, create_products, \
     get_result, http_cmd_req, get_any_id
 
 
@@ -20,21 +19,29 @@ class OrderShopTestCase(unittest.TestCase):
 
         # create customers
         customers = create_customers(10)
-        rsp = http_cmd_req('{}/customers'.format(BASE_URL), customers)
+        http_cmd_req('{}/customers'.format(BASE_URL), customers)
+
+        # digest async
+        time.sleep(1)
 
         # check result
-        customer_ids = get_result(rsp)
-        self.assertEqual(len(customer_ids), len(customers))
+        rsp = request.urlopen('{}/customers'.format(BASE_URL))
+        customers = get_result(rsp)
+        self.assertEqual(len(customers), 10)
 
     def test_b_create_products(self):
 
         # create propducts
         products = create_products(10)
-        rsp = http_cmd_req('{}/products'.format(BASE_URL), products)
+        http_cmd_req('{}/products'.format(BASE_URL), products)
+
+        # digest async
+        time.sleep(1)
 
         # check result
-        product_ids = get_result(rsp)
-        self.assertEqual(len(product_ids), len(products))
+        rsp = request.urlopen('{}/products'.format(BASE_URL))
+        customers = get_result(rsp)
+        self.assertEqual(len(customers), 10)
 
     def test_c_create_inventory(self):
 
@@ -42,13 +49,17 @@ class OrderShopTestCase(unittest.TestCase):
         rsp = request.urlopen('{}/products'.format(BASE_URL))
         products = get_result(rsp)
 
-        # create inventory
-        inventory = create_inventory([product['entity_id'] for product in products], 100)
-        rsp = http_cmd_req('{}/inventory'.format(BASE_URL), inventory)
+        # create inventories
+        inventories = create_inventories([product['entity_id'] for product in products], 100)
+        http_cmd_req('{}/inventories'.format(BASE_URL), inventories)
+
+        # digest async
+        time.sleep(1)
 
         # check result
-        inventory_ids = get_result(rsp)
-        self.assertEqual(len(inventory_ids), len(inventory))
+        rsp = request.urlopen('{}/inventories'.format(BASE_URL))
+        customers = get_result(rsp)
+        self.assertEqual(len(customers), 10)
 
     def test_d_create_carts(self):
 
@@ -62,14 +73,15 @@ class OrderShopTestCase(unittest.TestCase):
 
         # create carts
         carts = create_carts(10, customers, products)
-        created = 0
-        for cart in carts:
-            rsp = http_cmd_req('{}/carts'.format(BASE_URL), cart)
-            order_ids = get_result(rsp)
-            created += len(order_ids)
+        http_cmd_req('{}/carts'.format(BASE_URL), carts)
+
+        # digest async
+        time.sleep(2)
 
         # check result
-        self.assertEqual(created, len(carts))
+        rsp = request.urlopen('{}/carts'.format(BASE_URL))
+        customers = get_result(rsp)
+        self.assertEqual(len(customers), 10)
 
     def test_e_update_second_cart(self):
 
@@ -103,14 +115,15 @@ class OrderShopTestCase(unittest.TestCase):
 
         # create orders
         orders = create_orders(carts)
-        ordered = 0
-        for order in orders:
-            rsp = http_cmd_req('{}/orders'.format(BASE_URL), order)
-            order_ids = get_result(rsp)
-            ordered += len(order_ids)
+        http_cmd_req('{}/orders'.format(BASE_URL), orders)
+
+        # digest async
+        time.sleep(1)
 
         # check result
-        self.assertEqual(ordered, len(orders))
+        rsp = request.urlopen('{}/orders'.format(BASE_URL))
+        customers = get_result(rsp)
+        self.assertEqual(len(customers), 10)
 
     def test_g_delete_third_order(self):
 
@@ -193,6 +206,24 @@ class OrderShopTestCase(unittest.TestCase):
 
         # check result
         self.assertEqual(len(unshipped_orders), 8)
+
+    def test_m_get_delivered_orders(self):
+
+        # get delivered orders
+        rsp = request.urlopen('{}/orders/delivered'.format(BASE_URL))
+        delivered_orders = get_result(rsp)
+
+        # check result
+        self.assertEqual(len(delivered_orders), 1)
+
+    def test_n_get_sent_mails(self):
+
+        # get sent mails
+        rsp = request.urlopen('{}/mails/sent'.format(BASE_URL))
+        sent_mails = get_result(rsp)
+
+        # check result
+        self.assertEqual(len(sent_mails), 23)
 
     def test_z_print_report(self):
 

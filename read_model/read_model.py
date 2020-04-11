@@ -23,7 +23,8 @@ class ReadModel(object):
                                                   self.get_entities,
                                                   self.get_mails,
                                                   self.get_unbilled_orders,
-                                                  self.get_unshipped_orders])
+                                                  self.get_unshipped_orders,
+                                                  self.get_delivered_orders])
         self.domain_model = DomainModel(
             redis.StrictRedis(host=_redis_host, port=_redis_port, decode_responses=True)
         )
@@ -89,20 +90,25 @@ class ReadModel(object):
         :param _name: The entity name.
         :return: A dict mapping entity ID -> entity.
         """
-        if self.domain_model.exists(_name):
-            return self.domain_model.retrieve(_name)
+        entities = self.domain_model.retrieve(_name)
+        if entities:
+            return entities
 
         if _name not in self.locks:
             self.locks[_name] = threading.Lock()
 
         with self.locks[_name]:
+            entities = self.domain_model.retrieve(_name)
+            if entities:
+                return entities
 
             # deduce entities
             events = self.event_store.get(_name)
             entities = self._deduce_entities(events)
 
             # cache entities
-            [self.domain_model.create(_name, entity) for entity in entities.values()]
+            for entity in entities.values():
+                self.domain_model.create(_name, entity)
 
             # track entities
             tracking_handler = functools.partial(self._track_entities, _name)
@@ -158,13 +164,13 @@ class ReadModel(object):
         :return: a dict mapping entity ID -> entity.
         """
         orders = self._query_entities('order')
-        shipping = self._query_entities('shipping')
+        shippings = self._query_entities('shipping')
 
         unshipped = orders.copy()
-        for shipping_id, shipping in shipping.items():
-            order_ids_to_remove = list(filter(lambda x: x == shipping['order_id'] and shipping['delivered'], orders))
+        for shipping_id, shippings in shippings.items():
+            order_ids_to_remove = list(filter(lambda x: x == shippings['order_id'], orders))
             if not order_ids_to_remove:
-                raise Exception(f'could not find order {shipping["order_id"]} for shipping {shipping_id}')
+                raise Exception(f'could not find order {shippings["order_id"]} for shipping {shipping_id}')
 
             if order_ids_to_remove[0] not in unshipped:
                 raise Exception(f'could not find order {order_ids_to_remove[0]}')
@@ -172,6 +178,16 @@ class ReadModel(object):
             del unshipped[order_ids_to_remove[0]]
 
         return unshipped
+
+    def _delivered_orders(self):
+        """
+        Query all delivered orders.
+
+        :return: a dict mapping entity ID -> entity.
+        """
+        shippings = self._query_entities('shipping')
+
+        return list(filter(lambda x: x['delivered'], shippings.values()))
 
     def start(self):
         logging.info('starting ...')
@@ -233,7 +249,7 @@ class ReadModel(object):
 
     def get_mails(self, _req):
         return {
-            'result': self.event_store.get('mail')
+            'result': self.event_store.get('mail') or []
         }
 
     def get_unbilled_orders(self, _req):
@@ -244,6 +260,11 @@ class ReadModel(object):
     def get_unshipped_orders(self, _req):
         return {
             'result': self._unshipped_orders()
+        }
+
+    def get_delivered_orders(self, _req):
+        return {
+            'result': self._delivered_orders()
         }
 
 

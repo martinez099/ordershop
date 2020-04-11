@@ -25,25 +25,13 @@
     <section class="container">
       <div id="left">
         <h2>Events</h2>
-        Sort by <button id="sort" class="ui-button ui-widget ui-corner-all">action ascending</button>
+        <button id="reset" class="ui-button ui-widget ui-corner-all">Reset</button>
         <pre id="events"></pre>
         <script type="text/javascript" charset="utf-8">
         $(function() {
-          sorted_by_action = false;
-          $('#sort').click(function(event) {
-            if (sorted_by_action) {
-              events.sort(function(a, b) {
-                return b.ts - a.ts;
-              });
-              sorted_by_action = false;
-              $(this).text('action ascending');
-            } else {
-              events.sort(function(a, b) {
-                return a.action.localeCompare(b.action);
-              });
-              sorted_by_action = true;
-              $(this).text('timestamp descending');
-            }
+          $('#reset').click( function(event) {
+            event.preventDefault();
+            events = []
             $('#events').jsonViewer(events);
           });
         });

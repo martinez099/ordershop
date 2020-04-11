@@ -84,7 +84,7 @@ def create_products(amount):
     return products
 
 
-def create_inventory(product_ids, amount):
+def create_inventories(product_ids, amount):
     """
     Create an amount of random inventories.
 

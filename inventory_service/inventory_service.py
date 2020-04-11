@@ -13,7 +13,7 @@ class InventoryService(object):
     """
     def __init__(self):
         self.event_store = EventStoreClient()
-        self.consumers = Consumers('inventory-service', [self.create_inventory,
+        self.consumers = Consumers('inventory-service', [self.create_inventories,
                                                          self.update_inventory,
                                                          self.delete_inventory])
 
@@ -32,6 +32,77 @@ class InventoryService(object):
             'amount': _amount
         }
 
+    def _incr_inventory(self, _product_id, _value=1):
+        rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': _product_id}})
+        if 'error' in rsp:
+            raise Exception(rsp['error'] + ' (from read-model)')
+
+        inventory = rsp['result']
+        if not inventory:
+            logging.error("could not find inventory for product {}".format(_product_id))
+            return False
+
+        inventory['amount'] = int(inventory['amount']) - (_value if _value else 1)
+
+        # trigger event
+        self.event_store.publish('inventory', create_event('entity_updated', inventory))
+
+        return True
+
+    def _decr_inventory(self, _product_id, _value=1):
+        rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': _product_id}})
+        if 'error' in rsp:
+            raise Exception(rsp['error'] + ' (from read-model)')
+
+        inventory = rsp['result']
+        if not inventory:
+            logging.warning("could not find inventory for product {}".format(_product_id))
+            return False
+
+        if int(inventory['amount']) - (_value if _value else 1) < 0:
+            logging.info("product {} is out of stock".format(_product_id))
+            return False
+
+        inventory['amount'] = int(inventory['amount']) - (_value if _value else 1)
+
+        # trigger event
+        self.event_store.publish('inventory', create_event('entity_updated', inventory))
+
+        return True
+
+    def _decr_from_cart(self, _cart):
+        try:
+            product_ids = _cart['product_ids']
+        except KeyError:
+            raise Exception("missing mandatory parameter 'product_ids'")
+
+        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': product_ids}})
+        if 'error' in rsp:
+            raise Exception(rsp['error'] + ' (from read-model)')
+
+        inventories = rsp['result']
+
+        # count products
+        product_counts = []
+        for inventory in inventories:
+            found = product_ids.count(inventory['product_id'])
+
+            # check amount
+            if found > int(inventory['amount']):
+                logging.info("product {} is out of stock".format(inventory['product_id']))
+                return False
+
+            product_counts.append((inventory, found))
+
+        # decrement inventory
+        for inventory, count in product_counts:
+            inventory['amount'] = int(inventory['amount']) - count
+
+            # trigger event
+            self.event_store.publish('inventory', create_event('entity_updated', inventory))
+
+        return True
+
     def start(self):
         logging.info('starting ...')
         self.event_store.subscribe('order', self.order_created)
@@ -45,7 +116,7 @@ class InventoryService(object):
         self.consumers.stop()
         logging.info('stopped.')
 
-    def create_inventory(self, _req):
+    def create_inventories(self, _req):
         inventory = _req if isinstance(_req, list) else [_req]
         inventory_ids = []
 
@@ -128,77 +199,6 @@ class InventoryService(object):
             "result": True
         }
 
-    def incr_inventory(self, _product_id, _value=1):
-        rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': _product_id}})
-        if 'error' in rsp:
-            raise Exception(rsp['error'] + ' (from read-model)')
-
-        inventory = rsp['result']
-        if not inventory:
-            logging.error("could not find inventory for product {}".format(_product_id))
-            return False
-
-        inventory['amount'] = int(inventory['amount']) - (_value if _value else 1)
-
-        # trigger event
-        self.event_store.publish('inventory', create_event('entity_updated', inventory))
-
-        return True
-
-    def decr_inventory(self, _product_id, _value=1):
-        rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': _product_id}})
-        if 'error' in rsp:
-            raise Exception(rsp['error'] + ' (from read-model)')
-
-        inventory = rsp['result']
-        if not inventory:
-            logging.warning("could not find inventory for product {}".format(_product_id))
-            return False
-
-        if int(inventory['amount']) - (_value if _value else 1) < 0:
-            logging.info("product {} is out of stock".format(_product_id))
-            return False
-
-        inventory['amount'] = int(inventory['amount']) - (_value if _value else 1)
-
-        # trigger event
-        self.event_store.publish('inventory', create_event('entity_updated', inventory))
-
-        return True
-
-    def decr_from_cart(self, _cart):
-        try:
-            product_ids = _cart['product_ids']
-        except KeyError:
-            raise Exception("missing mandatory parameter 'product_ids'")
-
-        rsp = send_message('read-model', 'get_entities', {'name': 'inventory', 'props': {'product_id': product_ids}})
-        if 'error' in rsp:
-            raise Exception(rsp['error'] + ' (from read-model)')
-
-        inventories = rsp['result']
-
-        # count products
-        product_counts = []
-        for inventory in inventories:
-            found = product_ids.count(inventory['product_id'])
-
-            # check amount
-            if found > int(inventory['amount']):
-                logging.info("product {} is out of stock".format(inventory['product_id']))
-                return False
-
-            product_counts.append((inventory, found))
-
-        # decrement inventory
-        for inventory, count in product_counts:
-            inventory['amount'] = int(inventory['amount']) - count
-
-            # trigger event
-            self.event_store.publish('inventory', create_event('entity_updated', inventory))
-
-        return True
-
     def order_created(self, _item):
         if _item.event_action != 'entity_created':
             return
@@ -206,7 +206,7 @@ class InventoryService(object):
         order = json.loads(_item.event_data)
         rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
         cart = rsp['result']
-        result = self.decr_from_cart(cart)
+        result = self._decr_from_cart(cart)
         order['status'] = 'IN_STOCK' if result else 'OUT_OF_STOCK'
         self.event_store.publish('order', create_event('entity_updated', order))
 
@@ -220,7 +220,7 @@ class InventoryService(object):
 
         rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
         cart = rsp['result']
-        [self.incr_inventory(product_id) for product_id in cart['product_ids']]
+        [self._incr_inventory(product_id) for product_id in cart['product_ids']]
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')

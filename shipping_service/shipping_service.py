@@ -24,7 +24,7 @@ class ShippingService(object):
         Create a shipping entity.
 
         :param _order_id: The order which is shipped.
-        :param _delivered: TS indicating delivery.
+        :param _delivered: Optional TS indicating delivery, defaults to 0 (not delivered).
         :return: A dict with the entity properties.
         """
         return {

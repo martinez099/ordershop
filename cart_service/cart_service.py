@@ -1,3 +1,4 @@
+import collections
 import logging
 import signal
 import uuid
@@ -33,17 +34,15 @@ class CartService(object):
 
     @staticmethod
     def _check_inventory(_product_ids):
-        product_counts = {}
-        for product_id in _product_ids:
-            if product_id not in product_counts:
-                product_counts[product_id] = 1
-            else:
-                product_counts[product_id] += 1
-
+        product_counts = collections.Counter(_product_ids)
         for product_id, amount in product_counts.items():
             rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': product_id}})
+            if 'error' in rsp:
+                rsp['error'] += ' (from read-model)'
+                return rsp
+
             inventory = rsp['result']
-            if int(inventory['amount']) - amount < 0:
+            if not inventory or int(inventory['amount']) - amount < 0:
                 return False, product_id
 
         return True, None
@@ -59,7 +58,6 @@ class CartService(object):
 
     def create_carts(self, _req):
         carts = _req if isinstance(_req, list) else [_req]
-        logging.info(carts)
         cart_ids = []
 
         for cart in carts:

@@ -19,7 +19,7 @@ This shows Redis as a communication channel in a microservices architecture.
 
 ## View
 
-- Go to `http://localhost:5000/` and browse the entities.
+- Go to `http://localhost:5000/` for watching events and browsing entities.
 
 ## Stop
 

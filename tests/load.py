@@ -1,59 +1,55 @@
 import logging
+import time
+from urllib import request
 
-from common import BASE_URL, create_customers, create_products, create_inventory, create_orders, http_cmd_req, \
-    get_result
-
-
-def merge(ids, entities):
-
-    for i in range(0, len(ids)):
-        entities[i]['entity_id'] = ids[i]
-
-    return entities
+from common import BASE_URL, create_carts, create_customers, create_products, create_inventories, create_orders, \
+    http_cmd_req, get_result
 
 
 def test():
 
     logging.info("creating customers ...")
-
     customers = create_customers(10)
-    rsp = http_cmd_req('{}/customers'.format(BASE_URL), customers)
-    customer_ids = get_result(rsp)
-    merge(customer_ids, customers)
+    http_cmd_req('{}/customers'.format(BASE_URL), customers)
+
+    time.sleep(1)
+
+    rsp = request.urlopen('{}/customers'.format(BASE_URL))
+    customers = get_result(rsp)
 
     logging.info("creating products ...")
-
     products = create_products(100)
-    rsp = http_cmd_req('{}/products'.format(BASE_URL), products)
-    product_ids = get_result(rsp)
-    merge(product_ids, products)
+    http_cmd_req('{}/products'.format(BASE_URL), products)
+
+    time.sleep(1)
+
+    rsp = request.urlopen('{}/products'.format(BASE_URL))
+    products = get_result(rsp)
 
     logging.info("creating inventory ...")
+    inventories = create_inventories([product['entity_id'] for product in products], 100)
+    http_cmd_req('{}/inventories'.format(BASE_URL), inventories)
 
-    inventory = create_inventory([product['entity_id'] for product in products], 100)
-    rsp = http_cmd_req('{}/inventory'.format(BASE_URL), inventory)
-    inventory_ids = get_result(rsp)
-    merge(inventory_ids, inventory)
+    time.sleep(1)
+
+    rsp = request.urlopen('{}/inventories'.format(BASE_URL))
+    inventories = get_result(rsp)
+
+    logging.info("creating carts ...")
+    carts = create_carts(10, customers, products)
+    http_cmd_req('{}/carts'.format(BASE_URL), carts)
+
+    time.sleep(2)
+
+    rsp = request.urlopen('{}/carts'.format(BASE_URL))
+    carts = get_result(rsp)
 
     while True:
 
-        logging.info("creating orders ...")
+        logging.info("updating carts ...")
 
-        orders = create_orders(10, customers, products)
-        rsp = http_cmd_req('{}/orders'.format(BASE_URL), orders)
-        order_ids = get_result(rsp)
-        merge(order_ids, orders)
-
-        logging.info("created {} order.".format(len(order_ids)))
-
-        logging.info("deleting orders ...")
-
-        deleted = 0
-        for i in range(0, 10):
-            rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[i]['entity_id']), _method='DELETE')
-            deleted += 1 if get_result(rsp) else 0
-
-        logging.info("deleted {} orders.".format(deleted))
+        for cart in carts:
+            http_cmd_req('{}/cart/{}'.format(BASE_URL, cart['entity_id']), cart, _method='PUT')
 
 
 if __name__ == '__main__':
