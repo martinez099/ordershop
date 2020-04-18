@@ -83,7 +83,7 @@ class OrderShopTestCase(unittest.TestCase):
         customers = get_result(rsp)
         self.assertEqual(len(customers), 10)
 
-    def test_e_update_second_cart(self):
+    def test_e_update_a_cart(self):
 
         # get carts
         rsp = request.urlopen('{}/carts'.format(BASE_URL))
@@ -125,7 +125,7 @@ class OrderShopTestCase(unittest.TestCase):
         customers = get_result(rsp)
         self.assertEqual(len(customers), 10)
 
-    def test_g_delete_third_order(self):
+    def test_g_delete_an_order(self):
 
         # get orders
         rsp = request.urlopen('{}/orders'.format(BASE_URL))
@@ -138,7 +138,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertTrue(deleted)
 
-    def test_h_delete_third_customer(self):
+    def test_h_delete_a_customer(self):
 
         # get customers
         rsp = request.urlopen('{}/customers'.format(BASE_URL))

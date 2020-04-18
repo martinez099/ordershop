@@ -1,8 +1,8 @@
 import functools
 import json
+import logging
 
 from flask import Flask, request, render_template
-from flask.logging import default_handler
 from flask_socketio import SocketIO, send, emit
 
 from event_store.event_store_client import EventStoreClient
@@ -10,7 +10,10 @@ from message_queue.message_queue_client import send_message, send_message_async
 
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'secret'
 socketio = SocketIO(app)
+
+logging.basicConfig(level=logging.ERROR)
 
 event_store = EventStoreClient()
 
@@ -382,6 +385,8 @@ def on_stop():
                                                                                    'mail']]
 
 
+DEBUG = True
+HOST = '0.0.0.0'
+
 if __name__ == "__main__":
-    socketio.run(app)
-    app.logger.removeHandler(default_handler)
+    socketio.run(app, host=HOST, debug=DEBUG)

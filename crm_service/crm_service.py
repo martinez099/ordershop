@@ -72,14 +72,23 @@ Cheers""".format(customer['name'])
         if order['status'] != 'IN_STOCK':
             return
 
-        rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']}, )
+        rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
         cart = rsp['result']
+        if not cart:
+            logging.error('could not find cart {} for order {}'.format(order['cart_id'], order['entity_id']))
+            return
 
         rsp = send_message('read-model', 'get_entity', {'name': 'customer', 'id': cart['customer_id']})
         customer = rsp['result']
+        if not customer:
+            logging.error('could not find customer {} for cart {}'.format(cart['customer_id'], cart['entity_id']))
+            return
 
         rsp = send_message('read-model', 'get_entities', {'name': 'product', 'ids': cart['product_ids']})
         products = rsp['result']
+        if not all(products) and not len(products) == len(cart['product_ids']):
+            logging.error('could not find all products for cart {}'.format(cart['entity_id']))
+            return
 
         msg = """Dear {}!
 
@@ -101,12 +110,21 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
 
         rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': billing['order_id']})
         order = rsp['result']
+        if not order:
+            logging.error('could not find order {} for billing {}'.format(billing['order_id'], billing['entity_id']))
+            return
 
         rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
         cart = rsp['result']
+        if not cart:
+            logging.error('could not find cart {} for order {}'.format(order['cart_id'], order['entity_id']))
+            return
 
         rsp = send_message('read-model', 'get_entity', {'name': 'customer', 'id': cart['customer_id']})
         customer = rsp['result']
+        if not customer:
+            logging.error('could not find customer {} for cart {}'.format(cart['customer_id'], cart['entity_id']))
+            return
 
         msg = """Dear {}!
 
@@ -128,12 +146,21 @@ Cheers""".format(customer['name'], billing['amount'])
 
         rsp = send_message('read-model', 'get_entity', {'name': 'order', 'id': shipping['order_id']})
         order = rsp['result']
+        if not order:
+            logging.error('could not find order {} for shipping {}'.format(shipping['order_id'], shipping['entity_id']))
+            return
 
         rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
         cart = rsp['result']
+        if not cart:
+            logging.error('could not find cart {} for order {}'.format(order['cart_id'], order['entity_id']))
+            return
 
         rsp = send_message('read-model', 'get_entity', {'name': 'customer', 'id': cart['customer_id']})
         customer = rsp['result']
+        if not customer:
+            logging.error('could not find customer {} for cart {}'.format(cart['customer_id'], cart['entity_id']))
+            return
 
         msg = """Dear {}!
 

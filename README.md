@@ -6,8 +6,8 @@ This shows Redis as a communication channel in a microservices architecture.
 
 ## Prerequisites
 
-- Python 3
-- Docker 18
+- Python v3
+- Docker Compose v1.25 (or Kubernetes v1.17)
 
 ## Start
 
@@ -19,7 +19,7 @@ This shows Redis as a communication channel in a microservices architecture.
 
 ## View
 
-- Go to `http://localhost:5000/` for watching events and browsing entities.
+- Go to `http://localhost:5000/` for watching events and browsing state.
 
 ## Stop
 

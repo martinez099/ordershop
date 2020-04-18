@@ -39,7 +39,7 @@ class CartService(object):
             rsp = send_message('read-model', 'get_entity', {'name': 'inventory', 'props': {'product_id': product_id}})
             if 'error' in rsp:
                 rsp['error'] += ' (from read-model)'
-                return rsp
+                raise Exception(rsp['error'])
 
             inventory = rsp['result']
             if not inventory or int(inventory['amount']) - amount < 0:
