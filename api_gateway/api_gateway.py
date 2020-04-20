@@ -346,12 +346,15 @@ def get_order_report():
     for order in orders:
         rsp = send_message('read-model', 'get_entity', {'name': 'cart', 'id': order['cart_id']})
         order['cart'] = rsp['result']
+        del order['cart_id']
 
         rsp = send_message('read-model', 'get_entity', {'name': 'customer', 'id': order['cart']['customer_id']})
         order['cart']['customer'] = rsp['result']
+        del order['cart']['customer_id']
 
         rsp = send_message('read-model', 'get_entities', {'name': 'product', 'ids': order['cart']['product_ids']})
         order['cart']['products'] = rsp['result']
+        del order['cart']['product_ids']
 
     return {
         "result": orders

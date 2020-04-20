@@ -1,4 +1,3 @@
-import pprint
 import time
 import unittest
 from urllib import request
@@ -15,7 +14,12 @@ class OrderShopTestCase(unittest.TestCase):
     def __init__(self, method_name='runTest'):
         super(OrderShopTestCase, self).__init__(method_name)
 
-    def test_a_create_customers(self):
+    @classmethod
+    def setUpClass(cls) -> None:
+
+        # create propducts
+        products = create_products(10)
+        http_cmd_req('{}/products'.format(BASE_URL), products)
 
         # create customers
         customers = create_customers(10)
@@ -23,27 +27,6 @@ class OrderShopTestCase(unittest.TestCase):
 
         # digest async
         time.sleep(1)
-
-        # check result
-        rsp = request.urlopen('{}/customers'.format(BASE_URL))
-        customers = get_result(rsp)
-        self.assertEqual(len(customers), 10)
-
-    def test_b_create_products(self):
-
-        # create propducts
-        products = create_products(10)
-        http_cmd_req('{}/products'.format(BASE_URL), products)
-
-        # digest async
-        time.sleep(1)
-
-        # check result
-        rsp = request.urlopen('{}/products'.format(BASE_URL))
-        customers = get_result(rsp)
-        self.assertEqual(len(customers), 10)
-
-    def test_c_create_inventory(self):
 
         # get products
         rsp = request.urlopen('{}/products'.format(BASE_URL))
@@ -54,14 +37,9 @@ class OrderShopTestCase(unittest.TestCase):
         http_cmd_req('{}/inventories'.format(BASE_URL), inventories)
 
         # digest async
-        time.sleep(1)
+        time.sleep(3)
 
-        # check result
-        rsp = request.urlopen('{}/inventories'.format(BASE_URL))
-        customers = get_result(rsp)
-        self.assertEqual(len(customers), 10)
-
-    def test_d_create_carts(self):
+    def test_a_create_carts(self):
 
         # get customers
         rsp = request.urlopen('{}/customers'.format(BASE_URL))
@@ -76,14 +54,14 @@ class OrderShopTestCase(unittest.TestCase):
         http_cmd_req('{}/carts'.format(BASE_URL), carts)
 
         # digest async
-        time.sleep(2)
+        time.sleep(3)
 
         # check result
         rsp = request.urlopen('{}/carts'.format(BASE_URL))
         customers = get_result(rsp)
         self.assertEqual(len(customers), 10)
 
-    def test_e_update_a_cart(self):
+    def test_b_update_cart(self):
 
         # get carts
         rsp = request.urlopen('{}/carts'.format(BASE_URL))
@@ -107,7 +85,7 @@ class OrderShopTestCase(unittest.TestCase):
         self.assertIsNotNone(cart['product_ids'][0])
         self.assertEqual(carts[1]['product_ids'][0], cart['product_ids'][0])
 
-    def test_f_create_orders(self):
+    def test_c_create_orders(self):
 
         # get carts
         rsp = request.urlopen('{}/carts'.format(BASE_URL))
@@ -125,7 +103,7 @@ class OrderShopTestCase(unittest.TestCase):
         customers = get_result(rsp)
         self.assertEqual(len(customers), 10)
 
-    def test_g_delete_an_order(self):
+    def test_d_delete_order(self):
 
         # get orders
         rsp = request.urlopen('{}/orders'.format(BASE_URL))
@@ -137,21 +115,11 @@ class OrderShopTestCase(unittest.TestCase):
 
         # check result
         self.assertTrue(deleted)
-
-    def test_h_delete_a_customer(self):
-
-        # get customers
-        rsp = request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = request.urlopen('{}/order/{}'.format(BASE_URL, orders[2]['entity_id']))
         customers = get_result(rsp)
+        self.assertIsNone(customers)
 
-        # delete third customer
-        rsp = http_cmd_req('{}/customer/{}'.format(BASE_URL, customers[2]['entity_id']), _method='DELETE')
-        deleted = get_result(rsp)
-
-        # check result
-        self.assertTrue(deleted)
-
-    def test_i_perform_billing(self):
+    def test_e_perform_billing(self):
 
         # get orders
         rsp = request.urlopen('{}/orders'.format(BASE_URL))
@@ -175,7 +143,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertIsNotNone(billing_id)
 
-    def test_j_get_unbilled_orders(self):
+    def test_f_unbilled_orders(self):
 
         # get unbilled orders
         rsp = request.urlopen('{}/orders/unbilled'.format(BASE_URL))
@@ -184,7 +152,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertEqual(len(unbilled_orders), 8)
 
-    def test_k_confirm_shipping(self):
+    def test_g_confirm_shipping(self):
 
         # get shippings
         rsp = request.urlopen('{}/shippings'.format(BASE_URL))
@@ -198,7 +166,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertTrue(updated)
 
-    def test_l_get_unshipped_orders(self):
+    def test_h_unshipped_orders(self):
 
         # get unshipped orders
         rsp = request.urlopen('{}/orders/unshipped'.format(BASE_URL))
@@ -207,7 +175,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertEqual(len(unshipped_orders), 8)
 
-    def test_m_get_delivered_orders(self):
+    def test_i_delivered_orders(self):
 
         # get delivered orders
         rsp = request.urlopen('{}/orders/delivered'.format(BASE_URL))
@@ -216,23 +184,14 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertEqual(len(delivered_orders), 1)
 
-    def test_n_get_sent_mails(self):
+    def test_j_sent_mails(self):
+
+        # digest async
+        time.sleep(1)
 
         # get sent mails
         rsp = request.urlopen('{}/mails/sent'.format(BASE_URL))
         sent_mails = get_result(rsp)
 
         # check result
-        self.assertEqual(len(sent_mails), 23)
-
-    def test_z_print_report(self):
-
-        # get customers
-        rsp = request.urlopen('{}/report'.format(BASE_URL))
-        report = get_result(rsp)
-
-        # check result
-        self.assertIsNotNone(report)
-
-        # print result
-        pprint.pprint(report)
+        self.assertEqual(len(sent_mails), 22)
