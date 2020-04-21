@@ -356,6 +356,12 @@ def get_order_report():
         order['cart']['products'] = rsp['result']
         del order['cart']['product_ids']
 
+        rsp = send_message('read-model', 'get_entities', {'name': 'billing', 'props': {'order_id': order['entity_id']}})
+        order['billings'] = rsp['result']
+
+        rsp = send_message('read-model', 'get_entities', {'name': 'shipping', 'props': {'order_id': order['entity_id']}})
+        order['shippings'] = rsp['result']
+
     return {
         "result": orders
     }

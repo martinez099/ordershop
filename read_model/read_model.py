@@ -223,7 +223,7 @@ class ReadModel(object):
                 }
         else:
             return {
-                'result': 'invalid paramters'
+                'result': 'invalid parameters'
             }
 
     def get_entities(self, _req):
