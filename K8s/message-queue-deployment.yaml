@@ -26,7 +26,7 @@ spec:
           value: "100"
         - name: MESSAGE_QUEUE_REDIS_HOST
           value: redis
-        image: eu.gcr.io/central-beach-194106/ordershop/message-queue:latest
+        image: martinforstner/ordershop/message-queue:latest
         name: message-queue
         resources: {}
       restartPolicy: Always

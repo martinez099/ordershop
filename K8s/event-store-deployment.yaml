@@ -26,7 +26,7 @@ spec:
           value: "100"
         - name: EVENT_STORE_REDIS_HOST
           value: redis
-        image: eu.gcr.io/central-beach-194106/ordershop/event-store:latest
+        image: martinforstner/ordershop/event-store:latest
         name: event-store
         resources: {}
       restartPolicy: Always

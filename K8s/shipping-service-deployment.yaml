@@ -26,7 +26,7 @@ spec:
           value: event-store
         - name: MESSAGE_QUEUE_HOSTNAME
           value: message-queue
-        image: eu.gcr.io/central-beach-194106/ordershop/shipping-serivce:latest
+        image: martinforstner/ordershop/shipping-serivce:latest
         name: shipping-service
         resources: {}
       restartPolicy: Always
