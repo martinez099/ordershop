@@ -270,7 +270,10 @@ class ReadModel(object):
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)-6s] %(message)s')
 
-r = ReadModel(_redis_host=os.getenv('READ_MODEL_REDIS_HOST', 'localhost'))
+REDIS_HOST = os.getenv('READ_MODEL_REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.getenv('READ_MODEL_REDIS_PORT', '6379'))
+
+r = ReadModel(_redis_host=REDIS_HOST, _redis_port=REDIS_PORT)
 
 signal.signal(signal.SIGINT, lambda n, h: r.stop())
 signal.signal(signal.SIGTERM, lambda n, h: r.stop())
