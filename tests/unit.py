@@ -2,7 +2,7 @@ import time
 import unittest
 from urllib import request
 
-from common import BASE_URL, create_carts, create_customers, create_inventories, create_orders, create_products, \
+from tests.common import BASE_URL, create_carts, create_customers, create_inventories, create_orders, create_products, \
     get_result, http_cmd_req, get_any_id
 
 
